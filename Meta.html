@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <title>Metas e Sonhos - Controle Financeiro Familiar</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding-top: 20px; background-color: #f8f9fa; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+    .container { max-width: 1000px; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.1); margin-bottom: 50px; }
+    h1, h2, h3 { color: #343a40; }
+    .btn-back { margin-bottom: 20px; }
+    .table thead th { background-color: #e9ecef; color: #495057; border-bottom: 2px solid #dee2e6; }
+    .table tbody tr:hover { background-color: #f2f2f2; }
+    .alert-success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+    .alert-danger { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+    .progress { height: 25px; font-weight: bold; }
+    .progress-bar { text-align: center; color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
+    
+    <h1 class="mb-4">Gerenciar Metas e Sonhos Financeiros</h1>
+
+    <h2 class="mt-4">Cadastrar / Editar Meta ou Sonho</h2>
+    <form id="goalForm" class="row g-3 needs-validation" novalidate>
+      <input type="hidden" id="goalId">
+      <div class="col-md-6">
+        <label for="goalName" class="form-label">Nome da Meta/Sonho</label>
+        <input type="text" class="form-control" id="goalName" required>
+        <div class="invalid-feedback">Por favor, insira o nome da meta.</div>
+      </div>
+      <div class="col-md-6">
+        <label for="goalType" class="form-label">Tipo da Meta</label>
+        <select class="form-select" id="goalType" required>
+          <option value="">Selecione...</option>
+          <option value="Economia">Economia</option>
+          <option value="Quitação Dívida">Quitação Dívida</option>
+          <option value="Investimento">Investimento</option>
+          <option value="Sonho">Sonho (Ex: Viagem, Carro)</option>
+        </select>
+        <div class="invalid-feedback">Por favor, selecione o tipo.</div>
+      </div>
+      <div class="col-md-4">
+        <label for="goalTargetValue" class="form-label">Valor Alvo (R$)</label>
+        <input type="number" step="0.01" class="form-control" id="goalTargetValue" required>
+        <div class="invalid-feedback">Por favor, insira o valor alvo.</div>
+      </div>
+      <div class="col-md-4">
+        <label for="goalContributedValue" class="form-label">Valor Contribuído (R$)</label>
+        <input type="number" step="0.01" class="form-control" id="goalContributedValue" value="0" readonly>
+      </div>
+      <div class="col-md-4">
+        <label for="goalStatus" class="form-label">Status</label>
+        <select class="form-select" id="goalStatus" required>
+          <option value="Ativa">Ativa</option>
+          <option value="Alcancada">Alcançada</option>
+          <option value="Pausada">Pausada</option>
+          <option value="Ainda Não Planejada">Ainda Não Planejada</option>
+        </select>
+        <div class="invalid-feedback">Por favor, selecione o status.</div>
+      </div>
+      <div class="col-md-6">
+        <label for="goalStartDate" class="form-label">Data Início</label>
+        <input type="date" class="form-control" id="goalStartDate" required>
+        <div class="invalid-feedback">Por favor, insira a data de início.</div>
+      </div>
+      <div class="col-md-6">
+        <label for="goalTargetDate" class="form-label">Data Alvo</label>
+        <input type="date" class="form-control" id="goalTargetDate">
+      </div>
+      <div class="col-12">
+        <label for="goalPriority" class="form-label">Prioridade</label>
+        <select class="form-select" id="goalPriority">
+            <option value="Baixa">Baixa</option>
+            <option value="Média">Média</option>
+            <option value="Alta">Alta</option>
+        </select>
+      </div>
+      <div class="col-12">
+        <label for="goalObservations" class="form-label">Observações</label>
+        <textarea class="form-control" id="goalObservations" rows="2"></textarea>
+      </div>
+      <div class="col-12 mt-3">
+        <button class="btn btn-primary" type="submit">Salvar Meta/Sonho</button>
+        <div id="goalMessage" class="mt-2"></div>
+      </div>
+    </form>
+
+    <h3 class="mt-5">Minhas Metas e Sonhos</h3>
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Tipo</th>
+            <th>Alvo</th>
+            <th>Contribuído</th>
+            <th>Progresso (%)</th>
+            <th>Status</th>
+            <th>Prioridade</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="goalList">
+          <tr><td colspan="8" class="text-center">Carregando metas...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+  <script>
+    $(document).ready(function() {
+      // URL da Web App já inserido aqui
+      const mainAppUrl = "https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec"; 
+      $('.btn-back').attr('href', mainAppUrl);
+
+      // Carregar Metas e Sonhos
+      function loadGoals() {
+        google.script.run.withSuccessHandler(function(data) {
+          let html = '';
+          if (data.length <= 1) {
+            html = '<tr><td colspan="8" class="text-center text-muted">Nenhuma meta ou sonho registrado ainda.</td></tr>';
+          } else {
+            const headers = data[0];
+            const idCol = headers.indexOf('ID');
+            const nomeCol = headers.indexOf('Nome da Meta');
+            const tipoCol = headers.indexOf('Tipo');
+            const valorAlvoCol = headers.indexOf('Valor Alvo');
+            const valorContribuidoCol = headers.indexOf('Valor Contribuido');
+            const dataInicioCol = headers.indexOf('Data Inicio');
+            const dataAlvoCol = headers.indexOf('Data Alvo');
+            const statusCol = headers.indexOf('Status');
+            const prioridadeCol = headers.indexOf('Prioridade');
+            const observacoesCol = headers.indexOf('Observacoes');
+
+            if ([idCol, nomeCol, tipoCol, valorAlvoCol, valorContribuidoCol, dataInicioCol, dataAlvoCol, statusCol, prioridadeCol, observacoesCol].some(idx => idx === -1)) {
+                console.error("Cabeçalhos da aba 'Metas' inválidos. Verifique a estrutura.");
+                $('#goalList').html('<tr><td colspan="8" class="text-center text-danger">Erro: Cabeçalhos da aba Metas incorretos.</td></tr>');
+                return;
+            }
+            
+            data.slice(1).forEach(row => {
+              const goalId = row[idCol];
+              const nome = row[nomeCol];
+              const tipo = row[tipoCol];
+              const valorAlvo = parseFloat(row[valorAlvoCol] || 0);
+              const valorContribuido = parseFloat(row[valorContribuidoCol] || 0);
+              const status = row[statusCol];
+              const prioridade = row[prioridadeCol];
+
+              const progress = valorAlvo > 0 ? ((valorContribuido / valorAlvo) * 100).toFixed(2) : 0;
+              let statusBadgeClass = 'bg-secondary';
+              if (status === 'Alcancada') statusBadgeClass = 'bg-success';
+              else if (status === 'Ativa' && progress < 100) statusBadgeClass = 'bg-primary';
+              else if (status === 'Pausada') statusBadgeClass = 'bg-warning text-dark';
+              else if (status === 'Ainda Não Planejada') statusBadgeClass = 'bg-info text-dark';
+
+              html += `<tr>
+                <td>${nome}</td>
+                <td>${tipo}</td>
+                <td>R$ ${valorAlvo.toFixed(2)}</td>
+                <td>R$ ${valorContribuido.toFixed(2)}</td>
+                <td><div class="progress" style="height: 25px;"><div class="progress-bar ${statusBadgeClass}" role="progressbar" style="width: ${progress}%;" aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="100">${progress}%</div></div></td>
+                <td><span class="badge ${statusBadgeClass}">${status}</span></td>
+                <td>${prioridade}</td>
+                <td>
+                  <button class="btn btn-sm btn-info edit-goal-btn" data-id="${goalId}">Editar</button>
+                  ${status !== 'Alcancada' ? `<button class="btn btn-sm btn-success contribute-goal-btn" data-id="${goalId}" data-name="${nome}" data-current="${valorContribuido}" data-target="${valorAlvo}">Contribuir</button>` : ''}
+                </td>
+              </tr>`;
+            });
+          }
+          $('#goalList').html(html);
+
+          $('.edit-goal-btn').on('click', function() {
+            const goalId = $(this).data('id');
+            const rowData = data.slice(1).find(row => row[idCol] === goalId); 
+            if (rowData) {
+              $('#goalId').val(rowData[idCol]);
+              $('#goalName').val(rowData[nomeCol]);
+              $('#goalType').val(rowData[tipoCol]);
+              $('#goalTargetValue').val(rowData[valorAlvoCol]);
+              $('#goalContributedValue').val(rowData[valorContribuidoCol]);
+              
+              const startDate = new Date(rowData[dataInicioCol]);
+              $('#goalStartDate').val(startDate.toISOString().split('T')[0]);
+              
+              const targetDate = new Date(rowData[dataAlvoCol]);
+              if (!isNaN(targetDate.getTime())) { 
+                  $('#goalTargetDate').val(targetDate.toISOString().split('T')[0]);
+              } else {
+                  $('#goalTargetDate').val('');
+              }
+              
+              $('#goalStatus').val(rowData[statusCol]);
+              $('#goalPriority').val(rowData[prioridadeCol]);
+              $('#goalObservations').val(rowData[observacoesCol]);
+            }
+          });
+
+          $('.contribute-goal-btn').on('click', function() {
+            const goalId = $(this).data('id');
+            const goalName = $(this).data('name');
+            const currentContributed = parseFloat($(this).data('current'));
+            const targetValue = parseFloat($(this).data('target'));
+            const remaining = targetValue - currentContributed;
+
+            let contribution = prompt(`Quanto você quer contribuir para "${goalName}"? (Faltam R$ ${remaining.toFixed(2)})`);
+            contribution = parseFloat(contribution);
+
+            if (isNaN(contribution) || contribution <= 0) {
+              alert('Por favor, insira um valor válido e positivo.');
+              return;
+            }
+
+            google.script.run
+              .withSuccessHandler(function(success) {
+                if (success) {
+                  alert(`Contribuição de R$ ${contribution.toFixed(2)} adicionada à meta "${goalName}"!`);
+                  loadGoals();
+                } else {
+                  alert('Erro ao adicionar contribuição. Tente novamente ou verifique os logs.');
+                }
+              })
+              .withFailureHandler(function(error) {
+                  alert('Ocorreu um erro ao processar sua contribuição: ' + error.message);
+                  console.error("Erro na contribuição:", error);
+              })
+              .contributeToGoal(goalId, contribution);
+          });
+
+        }).getSheetData('Metas');
+      }
+
+      // Envio de Metas
+      $('#goalForm').on('submit', function(event) {
+        event.preventDefault();
+        const form = $(this)[0];
+        if (!form.checkValidity()) {
+          event.stopPropagation();
+        } else {
+          const goalData = {
+            id: $('#goalId').val(),
+            nome: $('#goalName').val(),
+            tipo: $('#goalType').val(),
+            valorAlvo: parseFloat($('#goalTargetValue').val()),
+            valorContribuido: parseFloat($('#goalContributedValue').val()),
+            dataInicio: $('#goalStartDate').val(),
+            dataAlvo: $('#goalTargetDate').val(),
+            status: $('#goalStatus').val(),
+            prioridade: $('#goalPriority').val(),
+            observacoes: $('#goalObservations').val()
+          };
+          google.script.run
+            .withSuccessHandler(function(success) {
+              if (success) {
+                $('#goalMessage').html('<div class="alert alert-success">Meta/Sonho salvo/atualizado com sucesso!</div>');
+                form.reset();
+                form.classList.remove('was-validated');
+                $('#goalId').val('');
+                loadGoals();
+              } else {
+                $('#goalMessage').html('<div class="alert alert-danger">Erro ao salvar meta/sonho. Verifique os logs.</div>');
+              }
+            })
+            .withFailureHandler(function(error) {
+                $('#goalMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
+                console.error("Erro ao salvar meta:", error);
+            })
+            .saveGoal(goalData);
+        }
+        form.classList.add('was-validated');
+      });
+
+      // Inicialização
+      loadGoals();
+
+      // Ativa a validação do Bootstrap
+      const forms = document.querySelectorAll('.needs-validation');
+      Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+          if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+          form.classList.add('was-validated');
+        }, false);
+      });
+    });
+  </script>
+</body>
+</html>
