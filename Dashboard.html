@@ -2,119 +2,57 @@
 <html>
 <head>
   <base target="_top">
-  <title>Transações - Controle Financeiro Familiar</title>
+  <title>Dashboard - Controle Financeiro Familiar</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body {
-      padding-top: 20px;
-      background-color: #f8f9fa;
-      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    }
-    .container {
-      max-width: 1000px;
-      background-color: #ffffff;
-      padding: 30px;
-      border-radius: 8px;
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-      margin-bottom: 50px;
-    }
-    h1, h2, h3 {
-      color: #343a40;
-    }
-    .btn-back {
-      margin-bottom: 20px;
-    }
-    .table thead th {
-      background-color: #e9ecef;
-      color: #495057;
-      border-bottom: 2px solid #dee2e6;
-    }
-    .table tbody tr:hover {
-      background-color: #f2f2f2;
-    }
+    body { padding-top: 20px; background-color: #f8f9fa; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+    .container { max-width: 1000px; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.1); margin-bottom: 50px; }
+    h1, h2, h3 { color: #343a40; }
+    .btn-back { margin-bottom: 20px; }
+    .card-header { font-weight: bold; }
     .alert-success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
     .alert-danger { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+    .alert-info { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; }
+    iframe { border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+    .list-group-item { display: flex; justify-content: space-between; align-items: center; }
   </style>
 </head>
 <body>
   <div class="container">
     <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
     
-    <h1 class="mb-4">Transações Financeiras</h1>
+    <h1 class="mb-4">Dashboard Financeiro</h1>
 
-    <h2 class="mt-4">Registrar Nova Transação</h2>
-    <form id="transactionForm" class="row g-3 needs-validation" novalidate>
-      <div class="col-md-4">
-        <label for="dataTransacao" class="form-label">Data</label>
-        <input type="date" class="form-control" id="dataTransacao" required>
-        <div class="invalid-feedback">Por favor, insira a data.</div>
-      </div>
-      <div class="col-md-4">
-        <label for="tipoTransacao" class="form-label">Tipo</label>
-        <select class="form-select" id="tipoTransacao" required>
-          <option value="">Selecione...</option>
-          <option value="Entrada">Entrada</option>
-          <option value="Saída">Saída</option>
-        </select>
-        <div class="invalid-feedback">Por favor, selecione o tipo.</div>
-      </div>
-      <div class="col-md-4">
-        <label for="valorTransacao" class="form-label">Valor (R$)</label>
-        <input type="number" step="0.01" class="form-control" id="valorTransacao" required>
-        <div class="invalid-feedback">Por favor, insira o valor.</div>
+    <div class="row mt-4">
+      <div class="col-md-6">
+        <div class="card mb-3">
+          <div class="card-header bg-primary text-white">Saldo Consolidado das Contas</div>
+          <div class="card-body" id="saldoContas">
+            <p>Carregando saldos...</p>
+          </div>
+        </div>
       </div>
       <div class="col-md-6">
-        <label for="descricaoTransacao" class="form-label">Descrição</label>
-        <input type="text" class="form-control" id="descricaoTransacao" required>
-        <div class="invalid-feedback">Por favor, insira a descrição.</div>
+        <div class="card mb-3">
+          <div class="card-header bg-warning text-dark">Próximas Contas a Pagar / Dívidas Vencendo</div>
+          <div class="card-body" id="proximasContas">
+            <p>Carregando...</p>
+          </div>
+        </div>
       </div>
-      <div class="col-md-6">
-        <label for="categoriaTransacao" class="form-label">Categoria</label>
-        <select class="form-select" id="categoriaTransacao" required>
-          </select>
-        <div class="invalid-feedback">Por favor, selecione a categoria.</div>
-      </div>
-      <div class="col-md-6">
-        <label for="contaTransacao" class="form-label">Conta</label>
-        <select class="form-select" id="contaTransacao" required>
-          </select>
-        <div class="invalid-feedback">Por favor, selecione a conta.</div>
-      </div>
-      <div class="col-md-6">
-        <label for="pessoaTransacao" class="form-label">Pessoa</label>
-        <select class="form-select" id="pessoaTransacao" required>
-          </select>
-        <div class="invalid-feedback">Por favor, selecione a pessoa.</div>
-      </div>
-      <div class="col-12">
-        <label for="observacoesTransacao" class="form-label">Observações</label>
-        <textarea class="form-control" id="observacoesTransacao" rows="2"></textarea>
-      </div>
-      <div class="col-12 mt-3">
-        <button class="btn btn-primary" type="submit">Salvar Transação</button>
-        <div id="transactionMessage" class="mt-2"></div>
-      </div>
-    </form>
-
-    <h2 class="mt-5">Histórico de Transações Recentes</h2>
-    <div class="table-responsive">
-      <table class="table table-striped table-hover">
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>Tipo</th>
-            <th>Valor</th>
-            <th>Descrição</th>
-            <th>Categoria</th>
-            <th>Conta</th>
-            <th>Pessoa</th>
-          </tr>
-        </thead>
-        <tbody id="transactionHistory">
-          <tr><td colspan="7" class="text-center">Carregando transações...</td></tr>
-        </tbody>
-      </table>
     </div>
+
+    <div class="mt-4 text-center">
+        <h4>Dashboard Visual (Google Looker Studio)</h4>
+        <p>Seu dashboard interativo pode ser incorporado aqui para uma visualização rica dos dados.</p>
+        <div class="alert alert-info">
+            **Lembre-se:** Você precisará criar e publicar seu dashboard no <a href="https://lookerstudio.google.com/" target="_blank">Google Looker Studio</a> e substituir o `src` do iframe abaixo com o link de incorporação real do seu relatório.
+            <br>
+            Ex: `https://lookerstudio.google.com/embed/reporting/SEU_ID_DO_RELATORIO/page/SEU_ID_DA_PAGINA`
+        </div>
+        <iframe src="https://lookerstudio.google.com/embed/reporting/SUA_ID_DO_RELATORIO_LOOKER_STUDIO/page/p_SUA_PAGINA" width="100%" height="600" frameborder="0" style="border:0" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+    </div>
+
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
@@ -127,160 +65,109 @@
       const mainAppUrl = "https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec"; 
       $('.btn-back').attr('href', mainAppUrl);
 
-      // Função para carregar dados das listas suspensas (Contas, Categorias, Pessoas)
-      function loadDropdowns() {
+      // Carregar Saldo Total das Contas para o Dashboard
+      function loadAccountBalances() {
         google.script.run.withSuccessHandler(function(data) {
-          const categoriasData = data.categorias;
-          const contasData = data.contas;
-          const pessoasData = data.pessoas;
-
-          const categoriaHeaders = categoriasData[0];
-          const categoriaNomeCol = categoriaHeaders.indexOf('Nome da Categoria');
-          const categoriaTipoCol = categoriaHeaders.indexOf('Tipo');
-
-          if (categoriaNomeCol !== -1 && categoriaTipoCol !== -1) {
-            const categoriasDespesa = categoriasData.slice(1).filter(row => row[categoriaTipoCol] === 'Despesa');
-            $('#categoriaTransacao').empty().append('<option value="">Selecione...</option>');
-            categoriasDespesa.forEach(row => {
-              $('#categoriaTransacao').append(`<option value="${row[categoriaNomeCol]}">${row[categoriaNomeCol]}</option>`);
-            });
-          }
-
-          const contasHeaders = contasData[0];
-          const contaNomeCol = contasHeaders.indexOf('Nome da Conta');
-          const contaBancoCol = contasHeaders.indexOf('Banco');
+          let totalBalance = 0;
+          let html = '<ul class="list-group">';
           
-          if (contaNomeCol !== -1 && contaBancoCol !== -1) {
-            $('#contaTransacao').empty().append('<option value="">Selecione...</option>');
-            contasData.slice(1).forEach(row => {
-              const nomeConta = row[contaNomeCol];
-              const banco = row[contaBancoCol];
-              $('#contaTransacao').append(`<option value="${nomeConta}">${nomeConta} (${banco || 'N/A'})</option>`);
-            });
-          }
-
-          const pessoasHeaders = pessoasData[0];
-          const pessoaNomeCol = pessoasHeaders.indexOf('Nome');
-
-          if (pessoaNomeCol !== -1) {
-            $('#pessoaTransacao').empty().append('<option value="">Selecione...</option>');
-            pessoasData.slice(1).forEach(row => {
-              $('#pessoaTransacao').append(`<option value="${row[pessoaNomeCol]}">${row[pessoaNomeCol]}</option>`);
-            });
-          }
-        }).getSheetDataBatch({
-          categorias: 'Categorias',
-          contas: 'Contas',
-          pessoas: 'Pessoas'
-        });
-      }
-
-      // Carregar Histórico de Transações Recentes
-      function loadTransactionHistory() {
-        google.script.run.withSuccessHandler(function(data) {
-          let html = '';
           if (data.length <= 1) {
-            html = '<tr><td colspan="7" class="text-center text-muted">Nenhuma transação registrada ainda.</td></tr>';
+            html = '<p class="text-muted">Nenhuma conta configurada ainda na sua planilha.</p>';
           } else {
             const headers = data[0];
-            const dataCol = headers.indexOf('Data');
-            const tipoCol = headers.indexOf('Tipo');
-            const valorCol = headers.indexOf('Valor (R$)');
-            const descricaoCol = headers.indexOf('Descricao');
-            const categoriaCol = headers.indexOf('Categoria');
-            const contaCol = headers.indexOf('Conta');
-            const pessoaCol = headers.indexOf('Pessoa');
+            const accountNameCol = headers.indexOf('Nome da Conta');
+            const saldoAtualCol = headers.indexOf('Saldo Atual');
+            const bancoCol = headers.indexOf('Banco');
 
-            if ([dataCol, tipoCol, valorCol, descricaoCol, categoriaCol, contaCol, pessoaCol].some(idx => idx === -1)) {
-                console.error("Cabeçalhos da aba 'Transacoes' inválidos.");
-                $('#transactionHistory').html('<tr><td colspan="7" class="text-center text-danger">Erro: Cabeçalhos da aba Transações incorretos.</td></tr>');
+            if (accountNameCol === -1 || saldoAtualCol === -1 || bancoCol === -1) {
+                console.error("Cabeçalhos da aba 'Contas' inválidos. Verifique 'Nome da Conta', 'Saldo Atual', 'Banco'.");
+                $('#saldoContas').html('<div class="alert alert-danger">Erro ao carregar saldos. Verifique a estrutura da aba "Contas".</div>');
                 return;
             }
 
-            const recentTransactions = data.slice(1).reverse().slice(0, 50); 
-            recentTransactions.forEach(row => {
-              const valor = parseFloat(row[valorCol] || 0);
-              const valorDisplay = row[tipoCol] === 'Saída' ? `- R$ ${valor.toFixed(2)}` : `+ R$ ${valor.toFixed(2)}`;
-              const valorClass = row[tipoCol] === 'Saída' ? 'text-danger' : 'text-success';
-              const rawDate = row[dataCol];
-              let formattedDate = '';
-              if (rawDate) {
-                  const dateObj = new Date(rawDate);
-                  if (!isNaN(dateObj)) { 
-                      formattedDate = dateObj.toLocaleDateString('pt-BR');
-                  } else {
-                      formattedDate = rawDate;
-                  }
-              }
-
-              html += `<tr>
-                <td>${formattedDate}</td>
-                <td class="${valorClass}">${row[tipoCol]}</td>
-                <td class="${valorClass}">${valorDisplay}</td>
-                <td>${row[descricaoCol]}</td>
-                <td>${row[categoriaCol]}</td>
-                <td>${row[contaCol]}</td>
-                <td>${row[pessoaCol]}</td>
-              </tr>`;
+            data.slice(1).forEach(row => {
+              const accountName = row[accountNameCol];
+              const banco = row[bancoCol];
+              const currentBalance = parseFloat(row[saldoAtualCol] || 0);
+              totalBalance += currentBalance;
+              html += `<li class="list-group-item">
+                         <span>${accountName} <span class="text-muted">(${banco})</span></span>
+                         <span class="badge bg-${currentBalance >= 0 ? 'success' : 'danger'} rounded-pill">R$ ${currentBalance.toFixed(2)}</span>
+                       </li>`;
             });
+            html += '</ul>';
           }
-          $('#transactionHistory').html(html);
-        }).getSheetData('Transacoes');
+          html += `<h5 class="mt-3">Saldo Consolidado Total: <span class="text-${totalBalance >= 0 ? 'success' : 'danger'}">R$ ${totalBalance.toFixed(2)}</span></h5>`;
+          $('#saldoContas').html(html);
+        }).getSheetData('Contas');
       }
 
-      // Envio de Transação
-      $('#transactionForm').on('submit', function(event) {
-        event.preventDefault();
-        const form = $(this)[0];
-        if (!form.checkValidity()) {
-          event.stopPropagation();
-        } else {
-          const transactionData = {
-            data: $('#dataTransacao').val(),
-            tipo: $('#tipoTransacao').val(),
-            valor: parseFloat($('#valorTransacao').val()),
-            descricao: $('#descricaoTransacao').val(),
-            categoria: $('#categoriaTransacao').val(),
-            conta: $('#contaTransacao').val(),
-            pessoa: $('#pessoaTransacao').val(),
-            observacoes: $('#observacoesTransacao').val()
-          };
+      // Carregar Próximas Contas a Pagar / Dívidas Vencendo
+      function loadUpcomingBills() {
+        google.script.run.withSuccessHandler(function(data) {
+          let html = '<ul class="list-group">';
+          if (data.length <= 1) {
+            html += '<li class="list-group-item text-muted">Nenhuma dívida registrada ou próxima do vencimento.</li>';
+          } else {
+            const headers = data[0];
+            const nomeDividaCol = headers.indexOf('Nome da Dívida');
+            const dataVencimentoCol = headers.indexOf('Data Vencimento');
+            const statusCol = headers.indexOf('Status');
 
-          google.script.run
-            .withSuccessHandler(function(success) {
-              if (success) {
-                $('#transactionMessage').html('<div class="alert alert-success">Transação salva com sucesso!</div>');
-                form.reset();
-                form.classList.remove('was-validated');
-                loadTransactionHistory();
-              } else {
-                $('#transactionMessage').html('<div class="alert alert-danger">Erro ao salvar transação. Verifique os dados e os logs do script.</div>');
+            if ([nomeDividaCol, dataVencimentoCol, statusCol].some(idx => idx === -1)) {
+                console.error("Cabeçalhos da aba 'Dividas' inválidos. Verifique a estrutura.");
+                $('#proximasContas').html('<div class="alert alert-danger">Erro ao carregar dívidas. Verifique a estrutura da aba "Dividas".</div>');
+                return;
+            }
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            const upcomingBills = [];
+            data.slice(1).forEach(row => {
+              const nomeDivida = row[nomeDividaCol];
+              const dataVencimento = new Date(row[dataVencimentoCol]);
+              const status = row[statusCol];
+
+              if (status === 'Ativa' || status === 'Aguardando Início') {
+                  const diffTime = dataVencimento.getTime() - today.getTime();
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                  if (diffDays >= 0 && diffDays <= 30) {
+                      upcomingBills.push({ name: nomeDivida, date: dataVencimento.toLocaleDateString('pt-BR'), daysLeft: diffDays, statusType: 'Próximo' });
+                  } else if (diffDays < 0) {
+                      upcomingBills.push({ name: nomeDivida, date: dataVencimento.toLocaleDateString('pt-BR'), daysLeft: Math.abs(diffDays), statusType: 'Atrasado' });
+                  }
               }
-            })
-            .withFailureHandler(function(error) {
-                $('#transactionMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao salvar transação:", error);
-            })
-            .saveTransaction(transactionData);
-        }
-        form.classList.add('was-validated');
-      });
+            });
+
+            if (upcomingBills.length > 0) {
+                upcomingBills.sort((a,b) => {
+                    if (a.statusType === 'Atrasado' && b.statusType !== 'Atrasado') return -1;
+                    if (a.statusType !== 'Atrasado' && b.statusType === 'Atrasado') return 1;
+                    return a.daysLeft - b.daysLeft;
+                });
+
+                upcomingBills.forEach(bill => {
+                    const statusClass = bill.statusType === 'Atrasado' ? 'bg-danger' : 'bg-info';
+                    const statusText = bill.statusType === 'Atrasado' ? `Atrasado (${bill.daysLeft} dias)` : `Vence em ${bill.daysLeft} dias`;
+                    html += `<li class="list-group-item">
+                                <span>${bill.name} - ${bill.date}</span>
+                                <span class="badge ${statusClass} rounded-pill">${statusText}</span>
+                             </li>`;
+                });
+            } else {
+                html += '<li class="list-group-item text-muted">Nenhuma dívida próxima ou atrasada.</li>';
+            }
+          }
+          html += '</ul>';
+          $('#proximasContas').html(html);
+        }).getSheetData('Dividas');
+      }
 
       // Inicialização
-      loadDropdowns();
-      loadTransactionHistory();
-
-      // Ativa a validação do Bootstrap
-      const forms = document.querySelectorAll('.needs-validation');
-      Array.from(forms).forEach(form => {
-        form.addEventListener('submit', event => {
-          if (!form.checkValidity()) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-          form.classList.add('was-validated');
-        }, false);
-      });
+      loadAccountBalances();
+      loadUpcomingBills();
     });
   </script>
 </body>
