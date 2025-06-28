@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <title>Gerenciar Categorias - Controle Financeiro Familiar</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { 
+      padding-top: 20px; 
+      background-color: #f0f2f5; /* Fundo suave */
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+    }
+    .container { 
+      max-width: 800px; 
+      background-color: #ffffff; 
+      padding: 30px; 
+      border-radius: 12px; /* Cantos arredondados */
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* Sombra suave */
+      margin-bottom: 50px; 
+    }
+    h1, h2, h3 { 
+      color: #343a40; 
+      margin-bottom: 25px; /* Espaçamento padrão */
+      font-weight: 600;
+    }
+    .btn-back {
+      margin-bottom: 20px;
+      background-color: #6c757d; /* Cinza do Bootstrap */
+      border-color: #6c757d;
+      transition: all 0.3s ease;
+    }
+    .btn-back:hover {
+      background-color: #5a6268;
+      border-color: #545b62;
+      transform: translateY(-1px);
+    }
+    .form-label {
+      font-weight: 500;
+      color: #495057;
+    }
+    .form-control, .form-select {
+      border-radius: 8px;
+      border: 1px solid #ced4da;
+      padding: 0.75rem 1rem;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: #80bdff;
+      box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+    }
+    .btn-primary, .btn-secondary, .btn-info, .btn-danger {
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      transition: all 0.3s ease;
+    }
+    .btn-primary {
+      background-color: #007bff;
+      border-color: #007bff;
+    }
+    .btn-primary:hover {
+      background-color: #0056b3;
+      border-color: #0056b3;
+      transform: translateY(-1px);
+    }
+    .btn-info {
+        background-color: #17a2b8;
+        border-color: #17a2b8;
+        color: #fff;
+    }
+    .btn-info:hover {
+        background-color: #117a8b;
+        border-color: #10707f;
+        transform: translateY(-1px);
+    }
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+    .btn-danger:hover {
+        background-color: #bd2130;
+        border-color: #b21f2d;
+        transform: translateY(-1px);
+    }
+    .table thead th {
+      background-color: #e9ecef;
+      color: #495057;
+      border-bottom: 2px solid #dee2e6;
+      padding: 1rem;
+    }
+    .table tbody tr:hover {
+      background-color: #f2f2f2;
+    }
+    .table td {
+      vertical-align: middle;
+      padding: 0.75rem;
+    }
+    .alert-success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; border-radius: 8px; }
+    .alert-danger { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; border-radius: 8px; }
+
+    /* Media queries para responsividade */
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px;
+        border-radius: 8px;
+      }
+      h1, h2, h3 {
+        font-size: 1.5em;
+        margin-bottom: 20px;
+      }
+      .form-control, .form-select {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.9rem;
+      }
+      .btn-primary, .btn-secondary, .btn-info, .btn-danger {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+      }
+      .table th, .table td {
+        padding: 0.6rem;
+        font-size: 0.85rem;
+      }
+      .table-responsive .btn { /* Ajuste para botões pequenos na tabela em mobile */
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+        margin-bottom: 5px; /* Espaçamento entre botões empilhados */
+      }
+    }
+    @media (max-width: 576px) {
+      .col-md-6, .col-12, .col-sm-12 {
+        width: 100% !important; /* Força empilhamento em telas muito pequenas */
+      }
+      .btn-group-vertical {
+        display: flex;
+        flex-direction: column;
+        gap: 5px; /* Espaçamento entre botões verticais */
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
+    
+    <h1 class="mb-4">Gerenciar Categorias</h1>
+
+    <h2 class="mt-4">Cadastrar / Editar Categoria</h2>
+    <form id="categoryForm" class="row g-3 needs-validation" novalidate>
+      <input type="hidden" id="categoryId">
+      <div class="col-md-6 col-sm-12">
+        <label for="categoryName" class="form-label">Nome da Categoria</label>
+        <input type="text" class="form-control" id="categoryName" required>
+        <div class="invalid-feedback">Por favor, insira o nome da categoria.</div>
+      </div>
+      <div class="col-md-6 col-sm-12">
+        <label for="categoryType" class="form-label">Tipo</label>
+        <select class="form-select" id="categoryType" required>
+          <option value="">Selecione...</option>
+          <option value="Entrada">Entrada</option>
+          <option value="Despesa">Despesa</option>
+        </select>
+        <div class="invalid-feedback">Por favor, selecione o tipo.</div>
+      </div>
+      <div class="col-12 mt-3">
+        <button class="btn btn-primary" type="submit">Salvar Categoria</button>
+        <button class="btn btn-secondary" type="button" id="clearFormBtn">Limpar Formulário</button>
+        <div id="categoryMessage" class="mt-2"></div>
+      </div>
+    </form>
+
+    <h3 class="mt-5">Minhas Categorias</h3>
+    <div class="input-group mb-3">
+        <input type="text" class="form-control" id="categorySearch" placeholder="Buscar categoria...">
+        <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn">Limpar</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th>Nome da Categoria</th>
+            <th>Tipo</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="categoryList">
+          <tr><td colspan="3" class="text-center">Carregando categorias...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+  <script>
+    $(document).ready(function() {
+      // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
+      // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
+      // VOCÊ DEVE ATUALIZAR ESTE URL EM TODOS OS ARQUIVOS HTML DO SEU PROJETO.
+      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec
+      const mainAppUrl = "https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec"; 
+      $('.btn-back').attr('href', mainAppUrl);
+
+      let allCategories = []; // Para armazenar todas as categorias e permitir busca
+      let categoriesHeaders = []; // Para armazenar os cabeçalhos uma vez
+
+      // Carregar Categorias
+      function loadCategories() {
+        google.script.run.withSuccessHandler(function(data) {
+          categoriesHeaders = data[0]; // Armazena os cabeçalhos
+          allCategories = data.slice(1); // Ignora o cabeçalho e armazena
+          renderCategories(allCategories);
+        }).getSheetData('Categorias');
+      }
+
+      function renderCategories(categoriesToRender) {
+        let html = '';
+        if (categoriesToRender.length === 0) {
+          html = '<tr><td colspan="3" class="text-center text-muted">Nenhuma categoria registrada ainda.</td></tr>';
+        } else {
+          // Os índices das colunas são obtidos dos cabeçalhos armazenados
+          const idCol = categoriesHeaders.indexOf('ID');
+          const nomeCol = categoriesHeaders.indexOf('Nome da Categoria');
+          const tipoCol = categoriesHeaders.indexOf('Tipo');
+
+          categoriesToRender.forEach(row => {
+            const categoryId = row[idCol];
+            const categoryName = row[nomeCol];
+            const categoryType = row[tipoCol];
+            html += `<tr>
+              <td>${categoryName}</td>
+              <td>${categoryType}</td>
+              <td>
+                <div class="btn-group-vertical" role="group" aria-label="Ações da Categoria">
+                  <button class="btn btn-sm btn-info edit-btn" data-id="${categoryId}" data-name="${categoryName}" data-type="${categoryType}">Editar</button>
+                  <button class="btn btn-sm btn-danger delete-btn" data-id="${categoryId}" data-name="${categoryName}">Excluir</button>
+                </div>
+              </td>
+            </tr>`;
+          });
+        }
+        $('#categoryList').html(html);
+
+        // Adicionar listeners para botões de Editar
+        $('.edit-btn').on('click', function() {
+          $('#categoryId').val($(this).data('id'));
+          $('#categoryName').val($(this).data('name'));
+          $('#categoryType').val($(this).data('type'));
+        });
+
+        // Adicionar listeners para botões de Excluir
+        $('.delete-btn').on('click', function() {
+          const categoryId = $(this).data('id');
+          const categoryName = $(this).data('name');
+          if (confirm(`Tem certeza que deseja excluir a categoria "${categoryName}"?`)) {
+            google.script.run
+              .withSuccessHandler(function(success) {
+                if (success) {
+                  $('#categoryMessage').html('<div class="alert alert-success">Categoria excluída com sucesso!</div>');
+                  loadCategories();
+                  $('#categoryForm')[0].reset(); // Limpa formulário após exclusão
+                  $('#categoryId').val('');
+                  $('#categoryForm').removeClass('was-validated');
+                } else {
+                  $('#categoryMessage').html('<div class="alert alert-danger">Erro ao excluir categoria.</div>');
+                }
+              })
+              .withFailureHandler(function(error) {
+                $('#categoryMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
+                console.error("Erro ao excluir categoria:", error);
+              })
+              .deleteCategory(categoryId);
+          }
+        });
+      }
+
+      // Envio do formulário de Categoria
+      $('#categoryForm').on('submit', function(event) {
+        event.preventDefault();
+        const form = $(this)[0];
+        if (!form.checkValidity()) {
+          event.stopPropagation();
+        } else {
+          const categoryData = {
+            id: $('#categoryId').val(),
+            nome: $('#categoryName').val(), // 'nome' para mapear para "Nome da Categoria"
+            tipo: $('#categoryType').val() // 'tipo' para mapear para "Tipo"
+          };
+          google.script.run
+            .withSuccessHandler(function(success) {
+              if (success) {
+                $('#categoryMessage').html('<div class="alert alert-success">Categoria salva/atualizada com sucesso!</div>');
+                form.reset();
+                form.classList.remove('was-validated');
+                $('#categoryId').val(''); // Limpa o ID para nova inserção
+                loadCategories();
+              } else {
+                $('#categoryMessage').html('<div class="alert alert-danger">Erro ao salvar categoria. Verifique os logs.</div>');
+              }
+            })
+            .withFailureHandler(function(error) {
+                $('#categoryMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
+                console.error("Erro ao salvar categoria:", error);
+            })
+            .saveCategory(categoryData);
+        }
+        form.classList.add('was-validated');
+      });
+
+      // Limpar Formulário
+      $('#clearFormBtn').on('click', function() {
+        $('#categoryForm')[0].reset();
+        $('#categoryForm').removeClass('was-validated');
+        $('#categoryId').val(''); // Garante que o ID de edição seja limpo
+        $('#categoryMessage').empty();
+      });
+
+      // Busca parcial no campo de pesquisa
+      $('#categorySearch').on('keyup', function() {
+        const searchTerm = $(this).val().toLowerCase();
+        // Os índices das colunas são obtidos dos cabeçalhos armazenados
+        const nomeCol = categoriesHeaders.indexOf('Nome da Categoria');
+        const tipoCol = categoriesHeaders.indexOf('Tipo');
+
+        const filtered = allCategories.filter(row => {
+          return (nomeCol !== -1 && row[nomeCol] && String(row[nomeCol]).toLowerCase().includes(searchTerm)) ||
+                 (tipoCol !== -1 && row[tipoCol] && String(row[tipoCol]).toLowerCase().includes(searchTerm));
+        });
+        renderCategories(filtered);
+      });
+
+      // Limpar Busca
+      $('#clearSearchBtn').on('click', function() {
+        $('#categorySearch').val('');
+        renderCategories(allCategories); // Renderiza todas novamente
+      });
+
+
+      // Inicialização
+      loadCategories();
+
+      // Ativa a validação do Bootstrap
+      const forms = document.querySelectorAll('.needs-validation');
+      Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+          if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+          form.classList.add('was-validated');
+        }, false);
+      });
+    });
+  </script>
+</body>
+</html>

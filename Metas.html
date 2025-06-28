@@ -4,17 +4,143 @@
   <base target="_top">
   <title>Metas e Sonhos - Controle Financeiro Familiar</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
-    body { padding-top: 20px; background-color: #f8f9fa; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-    .container { max-width: 1000px; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.1); margin-bottom: 50px; }
-    h1, h2, h3 { color: #343a40; }
-    .btn-back { margin-bottom: 20px; }
-    .table thead th { background-color: #e9ecef; color: #495057; border-bottom: 2px solid #dee2e6; }
-    .table tbody tr:hover { background-color: #f2f2f2; }
-    .alert-success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
-    .alert-danger { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
-    .progress { height: 25px; font-weight: bold; }
-    .progress-bar { text-align: center; color: white; }
+    body { 
+      padding-top: 20px; 
+      background-color: #f0f2f5; /* Fundo suave */
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+    }
+    .container { 
+      max-width: 1000px; 
+      background-color: #ffffff; 
+      padding: 30px; 
+      border-radius: 12px; /* Cantos arredondados */
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* Sombra suave */
+      margin-bottom: 50px; 
+    }
+    h1, h2, h3 { 
+      color: #343a40; 
+      margin-bottom: 25px; /* Espaçamento padrão */
+      font-weight: 600;
+    }
+    .btn-back {
+      margin-bottom: 20px;
+      background-color: #6c757d; /* Cinza do Bootstrap */
+      border-color: #6c757d;
+      transition: all 0.3s ease;
+    }
+    .btn-back:hover {
+      background-color: #5a6268;
+      border-color: #545b62;
+      transform: translateY(-1px);
+    }
+    .form-label {
+      font-weight: 500;
+      color: #495057;
+    }
+    .form-control, .form-select {
+      border-radius: 8px;
+      border: 1px solid #ced4da;
+      padding: 0.75rem 1rem;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: #80bdff;
+      box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+    }
+    .btn-primary, .btn-secondary, .btn-info, .btn-success {
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      transition: all 0.3s ease;
+    }
+    .btn-primary {
+      background-color: #007bff;
+      border-color: #007bff;
+    }
+    .btn-primary:hover {
+      background-color: #0056b3;
+      border-color: #0056b3;
+      transform: translateY(-1px);
+    }
+    .btn-info {
+        background-color: #17a2b8;
+        border-color: #17a2b8;
+        color: #fff;
+    }
+    .btn-info:hover {
+        background-color: #117a8b;
+        border-color: #10707f;
+        transform: translateY(-1px);
+    }
+    .btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+    .btn-success:hover {
+        background-color: #1e7e34;
+        border-color: #1c7430;
+        transform: translateY(-1px);
+    }
+    .table thead th {
+      background-color: #e9ecef;
+      color: #495057;
+      border-bottom: 2px solid #dee2e6;
+      padding: 1rem;
+    }
+    .table tbody tr:hover {
+      background-color: #f2f2f2;
+    }
+    .table td {
+      vertical-align: middle;
+      padding: 0.75rem;
+    }
+    .alert-success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; border-radius: 8px; }
+    .alert-danger { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; border-radius: 8px; }
+    .alert-info { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; border-radius: 8px; }
+    .progress { height: 28px; font-weight: bold; margin-top: 5px; border-radius: 5px; overflow: hidden;}
+    .progress-bar { text-align: center; color: white; line-height: 28px; } /* Centraliza o texto no meio */
+    .badge { padding: 0.5em 0.8em; font-size: 0.85em; border-radius: 0.5rem; }
+
+    /* Media queries para responsividade */
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px;
+        border-radius: 8px;
+      }
+      h1, h2, h3 {
+        font-size: 1.5em;
+        margin-bottom: 20px;
+      }
+      .form-control, .form-select {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.9rem;
+      }
+      .btn-primary, .btn-secondary, .btn-info, .btn-success {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+      }
+      .table th, .table td {
+        padding: 0.6rem;
+        font-size: 0.85rem;
+      }
+      .table-responsive .btn { /* Ajuste para botões pequenos na tabela em mobile */
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+      }
+      .progress { height: 20px; }
+      .progress-bar { line-height: 20px; font-size: 0.8em;}
+      .badge { font-size: 0.75em; padding: 0.4em 0.6em; }
+    }
+    @media (max-width: 576px) {
+      .col-md-4, .col-md-6, .col-12 {
+        width: 100%; /* Empilha colunas em telas muito pequenas */
+      }
+      .btn-group-vertical {
+        display: flex;
+        flex-direction: column;
+        gap: 5px; /* Espaçamento entre botões verticais */
+      }
+    }
   </style>
 </head>
 <body>
@@ -26,12 +152,12 @@
     <h2 class="mt-4">Cadastrar / Editar Meta ou Sonho</h2>
     <form id="goalForm" class="row g-3 needs-validation" novalidate>
       <input type="hidden" id="goalId">
-      <div class="col-md-6">
+      <div class="col-md-6 col-sm-12">
         <label for="goalName" class="form-label">Nome da Meta/Sonho</label>
         <input type="text" class="form-control" id="goalName" required>
         <div class="invalid-feedback">Por favor, insira o nome da meta.</div>
       </div>
-      <div class="col-md-6">
+      <div class="col-md-6 col-sm-12">
         <label for="goalType" class="form-label">Tipo da Meta</label>
         <select class="form-select" id="goalType" required>
           <option value="">Selecione...</option>
@@ -42,16 +168,16 @@
         </select>
         <div class="invalid-feedback">Por favor, selecione o tipo.</div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-4 col-sm-6">
         <label for="goalTargetValue" class="form-label">Valor Alvo (R$)</label>
         <input type="number" step="0.01" class="form-control" id="goalTargetValue" required>
         <div class="invalid-feedback">Por favor, insira o valor alvo.</div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-4 col-sm-6">
         <label for="goalContributedValue" class="form-label">Valor Contribuído (R$)</label>
         <input type="number" step="0.01" class="form-control" id="goalContributedValue" value="0" readonly>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-4 col-sm-12">
         <label for="goalStatus" class="form-label">Status</label>
         <select class="form-select" id="goalStatus" required>
           <option value="Ativa">Ativa</option>
@@ -61,12 +187,12 @@
         </select>
         <div class="invalid-feedback">Por favor, selecione o status.</div>
       </div>
-      <div class="col-md-6">
+      <div class="col-md-6 col-sm-12">
         <label for="goalStartDate" class="form-label">Data Início</label>
         <input type="date" class="form-control" id="goalStartDate" required>
         <div class="invalid-feedback">Por favor, insira a data de início.</div>
       </div>
-      <div class="col-md-6">
+      <div class="col-md-6 col-sm-12">
         <label for="goalTargetDate" class="form-label">Data Alvo</label>
         <input type="date" class="form-control" id="goalTargetDate">
       </div>
@@ -84,11 +210,16 @@
       </div>
       <div class="col-12 mt-3">
         <button class="btn btn-primary" type="submit">Salvar Meta/Sonho</button>
+        <button class="btn btn-secondary" type="button" id="clearFormBtn">Limpar Formulário</button>
         <div id="goalMessage" class="mt-2"></div>
       </div>
     </form>
 
     <h3 class="mt-5">Minhas Metas e Sonhos</h3>
+    <div class="input-group mb-3">
+        <input type="text" class="form-control" id="goalSearch" placeholder="Buscar meta...">
+        <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn">Limpar</button>
+    </div>
     <div class="table-responsive">
       <table class="table table-striped table-hover">
         <thead>
@@ -116,18 +247,29 @@
 
   <script>
     $(document).ready(function() {
-      // URL da Web App já inserido aqui
+      // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
+      // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
+      // VOCÊ DEVE ATUALIZAR ESTE URL EM TODOS OS ARQUIVOS HTML DO SEU PROJETO.
+      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec
       const mainAppUrl = "https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec"; 
       $('.btn-back').attr('href', mainAppUrl);
+
+      let allGoals = []; // Para armazenar todas as metas para busca
 
       // Carregar Metas e Sonhos
       function loadGoals() {
         google.script.run.withSuccessHandler(function(data) {
-          let html = '';
-          if (data.length <= 1) {
-            html = '<tr><td colspan="8" class="text-center text-muted">Nenhuma meta ou sonho registrado ainda.</td></tr>';
-          } else {
-            const headers = data[0];
+          allGoals = data.slice(1); // Ignora o cabeçalho
+          renderGoals(allGoals);
+        }).getSheetData('Metas');
+      }
+
+      function renderGoals(goalsToRender) {
+        let html = '';
+        if (goalsToRender.length === 0) {
+          html = '<tr><td colspan="8" class="text-center text-muted">Nenhuma meta ou sonho registrado ainda.</td></tr>';
+        } else {
+            const headers = google.script.run.getSheetData('Metas')[0]; // Busca cabeçalhos novamente para renderGoals
             const idCol = headers.indexOf('ID');
             const nomeCol = headers.indexOf('Nome da Meta');
             const tipoCol = headers.indexOf('Tipo');
@@ -145,7 +287,7 @@
                 return;
             }
             
-            data.slice(1).forEach(row => {
+            goalsToRender.forEach(row => {
               const goalId = row[idCol];
               const nome = row[nomeCol];
               const tipo = row[tipoCol];
@@ -170,17 +312,21 @@
                 <td><span class="badge ${statusBadgeClass}">${status}</span></td>
                 <td>${prioridade}</td>
                 <td>
-                  <button class="btn btn-sm btn-info edit-goal-btn" data-id="${goalId}">Editar</button>
-                  ${status !== 'Alcancada' ? `<button class="btn btn-sm btn-success contribute-goal-btn" data-id="${goalId}" data-name="${nome}" data-current="${valorContribuido}" data-target="${valorAlvo}">Contribuir</button>` : ''}
+                  <div class="btn-group-vertical" role="group" aria-label="Ações da Meta">
+                    <button class="btn btn-sm btn-info edit-goal-btn" data-id="${goalId}">Editar</button>
+                    ${status !== 'Alcancada' ? `<button class="btn btn-sm btn-success contribute-goal-btn" data-id="${goalId}" data-name="${nome}" data-current="${valorContribuido}" data-target="${valorAlvo}">Contribuir</button>` : ''}
+                    <button class="btn btn-sm btn-danger delete-goal-btn" data-id="${goalId}" data-name="${nome}">Excluir</button>
+                  </div>
                 </td>
               </tr>`;
             });
           }
           $('#goalList').html(html);
 
+          // Event listeners para botões de Editar
           $('.edit-goal-btn').on('click', function() {
             const goalId = $(this).data('id');
-            const rowData = data.slice(1).find(row => row[idCol] === goalId); 
+            const rowData = allGoals.find(row => row[idCol] === goalId); 
             if (rowData) {
               $('#goalId').val(rowData[idCol]);
               $('#goalName').val(rowData[nomeCol]);
@@ -204,6 +350,7 @@
             }
           });
 
+          // Event listeners para botões de Contribuir
           $('.contribute-goal-btn').on('click', function() {
             const goalId = $(this).data('id');
             const goalName = $(this).data('name');
@@ -235,8 +382,33 @@
               .contributeToGoal(goalId, contribution);
           });
 
-        }).getSheetData('Metas');
-      }
+          // Event listeners para botões de Excluir
+          $('.delete-goal-btn').on('click', function() {
+            const goalId = $(this).data('id');
+            const goalName = $(this).data('name');
+            if (confirm(`Tem certeza que deseja excluir a meta "${goalName}"?`)) {
+              google.script.run
+                .withSuccessHandler(function(success) {
+                  if (success) {
+                    $('#goalMessage').html('<div class="alert alert-success">Meta excluída com sucesso!</div>');
+                    loadGoals();
+                    $('#goalForm')[0].reset(); 
+                    $('#goalId').val('');
+                    $('#goalForm').removeClass('was-validated');
+                  } else {
+                    $('#goalMessage').html('<div class="alert alert-danger">Erro ao excluir meta.</div>');
+                  }
+                })
+                .withFailureHandler(function(error) {
+                  $('#goalMessage').html('<div class="alert alert-danger">Erro inesperado: ' + error.message + '</div>');
+                  console.error("Erro ao excluir meta:", error);
+                })
+                .deleteGoal(goalId);
+            }
+          });
+
+        } // Fim do else (se houver dados)
+      } // Fim da renderGoals
 
       // Envio de Metas
       $('#goalForm').on('submit', function(event) {
@@ -276,6 +448,39 @@
             .saveGoal(goalData);
         }
         form.classList.add('was-validated');
+      });
+
+      // Limpar Formulário
+      $('#clearFormBtn').on('click', function() {
+        $('#goalForm')[0].reset();
+        $('#goalForm').removeClass('was-validated');
+        $('#goalId').val(''); 
+        $('#goalMessage').empty();
+      });
+
+      // Busca parcial no campo de pesquisa
+      $('#goalSearch').on('keyup', function() {
+        const searchTerm = $(this).val().toLowerCase();
+        const filtered = allGoals.filter(row => {
+          // Assegura que os cabeçalhos são buscados APENAS UMA VEZ
+          const headers = google.script.run.getSheetData('Metas')[0];
+          const nomeCol = headers.indexOf('Nome da Meta');
+          const tipoCol = headers.indexOf('Tipo');
+          const statusCol = headers.indexOf('Status');
+          const prioridadeCol = headers.indexOf('Prioridade');
+
+          return (row[nomeCol] && row[nomeCol].toLowerCase().includes(searchTerm)) ||
+                 (row[tipoCol] && row[tipoCol].toLowerCase().includes(searchTerm)) ||
+                 (row[statusCol] && row[statusCol].toLowerCase().includes(searchTerm)) ||
+                 (row[prioridadeCol] && row[prioridadeCol].toLowerCase().includes(searchTerm));
+        });
+        renderGoals(filtered);
+      });
+
+      // Limpar Busca
+      $('#clearSearchBtn').on('click', function() {
+        $('#goalSearch').val('');
+        renderGoals(allGoals);
       });
 
       // Inicialização

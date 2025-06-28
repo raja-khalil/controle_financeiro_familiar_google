@@ -4,49 +4,175 @@
   <base target="_top">
   <title>Dashboard - Controle Financeiro Familiar</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
-    body { padding-top: 20px; background-color: #f8f9fa; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-    .container { max-width: 1000px; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.1); margin-bottom: 50px; }
-    h1, h2, h3 { color: #343a40; }
-    .btn-back { margin-bottom: 20px; }
-    .card-header { font-weight: bold; }
+    body { 
+      padding-top: 20px; 
+      background-color: #f0f2f5; /* Fundo suave */
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+    }
+    .container { 
+      max-width: 1000px; 
+      background-color: #ffffff; 
+      padding: 30px; 
+      border-radius: 12px; /* Cantos arredondados */
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* Sombra suave */
+      margin-bottom: 50px; 
+    }
+    h1, h2, h3 { 
+      color: #343a40; 
+      margin-bottom: 25px; /* Espaçamento padrão */
+      font-weight: 600;
+    }
+    .btn-back {
+      margin-bottom: 20px;
+      background-color: #6c757d; /* Cinza do Bootstrap */
+      border-color: #6c757d;
+      transition: all 0.3s ease;
+    }
+    .btn-back:hover {
+      background-color: #5a6268;
+      border-color: #545b62;
+      transform: translateY(-1px);
+    }
+    .card {
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        border: none; /* Remove a borda padrão do card */
+    }
+    .card-header { 
+        font-weight: bold; 
+        padding: 1.25rem 1.5rem; /* Mais padding */
+        border-bottom: 1px solid rgba(0,0,0,.125); /* Borda mais discreta */
+        border-top-left-radius: 12px; /* Mantém cantos arredondados */
+        border-top-right-radius: 12px;
+        font-size: 1.1em;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .card-body {
+        padding: 1.5rem; /* Mais padding */
+    }
+    .alert {
+        border-radius: 8px;
+        font-size: 0.95rem;
+    }
     .alert-success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
     .alert-danger { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
     .alert-info { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; }
-    iframe { border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
-    .list-group-item { display: flex; justify-content: space-between; align-items: center; }
+    iframe { 
+      border-radius: 12px; 
+      box-shadow: 0 5px 20px rgba(0,0,0,0.15); /* Sombra mais pronunciada para o iframe */
+      border: 1px solid #e0e0e0; /* Uma borda sutil */
+    }
+    .list-group-item { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      padding: 0.75rem 1.25rem;
+      border: 1px solid rgba(0,0,0,.125); /* Borda padrão do list-group */
+      border-radius: 8px; /* Cantos arredondados para itens da lista */
+      margin-bottom: 5px; /* Espaçamento entre itens */
+    }
+    .list-group-item:last-child {
+        margin-bottom: 0;
+    }
+    .list-group-item span.badge {
+        min-width: 80px; /* Garante largura mínima para o badge */
+        text-align: center;
+        padding: 0.5em 0.75em;
+        font-size: 0.85em;
+        border-radius: 0.5rem;
+    }
+    .text-success { color: #28a745 !important; font-weight: 600; }
+    .text-danger { color: #dc3545 !important; font-weight: 600; }
+    .text-warning-custom { color: #ffc107 !important; } /* Cor para o cabeçalho de dívidas */
+
+    /* Classes para as cores dos cabeçalhos dos cards */
+    .bg-primary-darker { background-color: #0056b3 !important; } /* Azul mais escuro */
+    .bg-warning-darker { background-color: #e0a800 !important; } /* Amarelo mais escuro */
+
+    /* Media queries para responsividade */
+    @media (max-width: 992px) { /* Tablets e menores */
+        .container { max-width: 90%; padding: 25px; }
+        .card-header { font-size: 1em; padding: 1rem 1.25rem; }
+        .card-body { padding: 1.25rem; }
+        h1 { font-size: 2em; }
+    }
+    @media (max-width: 768px) { /* Celulares maiores */
+      .container {
+        padding: 20px;
+        border-radius: 8px;
+      }
+      .col-md-6 {
+        width: 100%; /* Cartões empilham em telas menores */
+      }
+      .row > .col-md-6:first-child {
+        margin-bottom: 20px; /* Espaçamento entre os cartões empilhados */
+      }
+      h1, h2, h3 {
+        font-size: 1.5em;
+        margin-bottom: 20px;
+      }
+      .btn-back {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+      }
+      .list-group-item {
+          padding: 0.6rem 1rem;
+          font-size: 0.9em;
+      }
+      .list-group-item span.badge {
+          min-width: 60px;
+          font-size: 0.75em;
+      }
+      iframe { height: 400px; } /* Altura ajustada para telas menores */
+    }
+    @media (max-width: 576px) { /* Celulares muito pequenos */
+      .card-header {
+        flex-direction: column; /* Empilha título e ícone/botão no header */
+        align-items: flex-start;
+      }
+      .list-group-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .list-group-item span {
+        margin-bottom: 5px;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
+    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
     
     <h1 class="mb-4">Dashboard Financeiro</h1>
 
-    <div class="row mt-4">
-      <div class="col-md-6">
-        <div class="card mb-3">
-          <div class="card-header bg-primary text-white">Saldo Consolidado das Contas</div>
+    <div class="row mt-4 g-4"> <div class="col-md-6">
+        <div class="card">
+          <div class="card-header bg-primary-darker text-white">Saldo Consolidado das Contas</div>
           <div class="card-body" id="saldoContas">
-            <p>Carregando saldos...</p>
+            <p class="text-muted">Carregando saldos...</p>
           </div>
         </div>
       </div>
       <div class="col-md-6">
-        <div class="card mb-3">
-          <div class="card-header bg-warning text-dark">Próximas Contas a Pagar / Dívidas Vencendo</div>
+        <div class="card">
+          <div class="card-header bg-warning-darker text-dark">Próximas Contas a Pagar / Dívidas Vencendo</div>
           <div class="card-body" id="proximasContas">
-            <p>Carregando...</p>
+            <p class="text-muted">Carregando...</p>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="mt-4 text-center">
+    <div class="mt-5 text-center">
         <h4>Dashboard Visual (Google Looker Studio)</h4>
-        <p>Seu dashboard interativo pode ser incorporado aqui para uma visualização rica dos dados.</p>
+        <p class="text-muted">Seu dashboard interativo pode ser incorporado aqui para uma visualização rica dos dados.</p>
         <div class="alert alert-info">
-            **Lembre-se:** Você precisará criar e publicar seu dashboard no <a href="https://lookerstudio.google.com/" target="_blank">Google Looker Studio</a> e substituir o `src` do iframe abaixo com o link de incorporação real do seu relatório.
+            **Lembre-se:** Você precisará criar e publicar seu dashboard no <a href="https://lookerstudio.google.com/" target="_blank" class="alert-link">Google Looker Studio</a> e substituir o `src` do iframe abaixo com o link de incorporação real do seu relatório.
             <br>
             Ex: `https://lookerstudio.google.com/embed/reporting/SEU_ID_DO_RELATORIO/page/SEU_ID_DA_PAGINA`
         </div>
@@ -61,7 +187,10 @@
 
   <script>
     $(document).ready(function() {
-      // URL da Web App já inserido aqui
+      // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
+      // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
+      // VOCÊ DEVE ATUALIZAR ESTE URL EM TODOS OS ARQUIVOS HTML DO SEU PROJETO.
+      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec
       const mainAppUrl = "https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec"; 
       $('.btn-back').attr('href', mainAppUrl);
 
@@ -69,7 +198,7 @@
       function loadAccountBalances() {
         google.script.run.withSuccessHandler(function(data) {
           let totalBalance = 0;
-          let html = '<ul class="list-group">';
+          let html = '<ul class="list-group list-group-flush">'; // Usar list-group-flush para remover bordas verticais
           
           if (data.length <= 1) {
             html = '<p class="text-muted">Nenhuma conta configurada ainda na sua planilha.</p>';
@@ -90,10 +219,10 @@
               const banco = row[bancoCol];
               const currentBalance = parseFloat(row[saldoAtualCol] || 0);
               totalBalance += currentBalance;
-              html += `<li class="list-group-item">
-                         <span>${accountName} <span class="text-muted">(${banco})</span></span>
-                         <span class="badge bg-${currentBalance >= 0 ? 'success' : 'danger'} rounded-pill">R$ ${currentBalance.toFixed(2)}</span>
-                       </li>`;
+              html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                          <span>${accountName} <span class="text-muted">(${banco})</span></span>
+                          <span class="badge bg-${currentBalance >= 0 ? 'success' : 'danger'}">${currentBalance.toFixed(2)}</span>
+                        </li>`;
             });
             html += '</ul>';
           }
@@ -105,7 +234,7 @@
       // Carregar Próximas Contas a Pagar / Dívidas Vencendo
       function loadUpcomingBills() {
         google.script.run.withSuccessHandler(function(data) {
-          let html = '<ul class="list-group">';
+          let html = '<ul class="list-group list-group-flush">';
           if (data.length <= 1) {
             html += '<li class="list-group-item text-muted">Nenhuma dívida registrada ou próxima do vencimento.</li>';
           } else {
@@ -113,8 +242,10 @@
             const nomeDividaCol = headers.indexOf('Nome da Dívida');
             const dataVencimentoCol = headers.indexOf('Data Vencimento');
             const statusCol = headers.indexOf('Status');
+            const valorTotalCol = headers.indexOf('Valor Total'); // Adicionado para exibir o valor
+            const valorPagoCol = headers.indexOf('Valor Pago'); // Adicionado para calcular restante
 
-            if ([nomeDividaCol, dataVencimentoCol, statusCol].some(idx => idx === -1)) {
+            if ([nomeDividaCol, dataVencimentoCol, statusCol, valorTotalCol, valorPagoCol].some(idx => idx === -1)) {
                 console.error("Cabeçalhos da aba 'Dividas' inválidos. Verifique a estrutura.");
                 $('#proximasContas').html('<div class="alert alert-danger">Erro ao carregar dívidas. Verifique a estrutura da aba "Dividas".</div>');
                 return;
@@ -128,32 +259,50 @@
               const nomeDivida = row[nomeDividaCol];
               const dataVencimento = new Date(row[dataVencimentoCol]);
               const status = row[statusCol];
+              const valorTotal = parseFloat(row[valorTotalCol] || 0);
+              const valorPago = parseFloat(row[valorPagoCol] || 0);
+              const valorRestante = valorTotal - valorPago;
 
               if (status === 'Ativa' || status === 'Aguardando Início') {
                   const diffTime = dataVencimento.getTime() - today.getTime();
                   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-                  if (diffDays >= 0 && diffDays <= 30) {
-                      upcomingBills.push({ name: nomeDivida, date: dataVencimento.toLocaleDateString('pt-BR'), daysLeft: diffDays, statusType: 'Próximo' });
-                  } else if (diffDays < 0) {
-                      upcomingBills.push({ name: nomeDivida, date: dataVencimento.toLocaleDateString('pt-BR'), daysLeft: Math.abs(diffDays), statusType: 'Atrasado' });
+                  // Inclui dívidas atrasadas, vencendo hoje ou nos próximos 30 dias
+                  if (diffDays <= 30) { // Considera 30 dias para frente e todos os atrasados
+                      upcomingBills.push({ 
+                          name: nomeDivida, 
+                          date: dataVencimento.toLocaleDateString('pt-BR'), 
+                          daysLeft: diffDays, 
+                          statusType: diffDays < 0 ? 'Atrasado' : 'Próximo',
+                          valor: valorRestante
+                      });
                   }
               }
             });
 
             if (upcomingBills.length > 0) {
                 upcomingBills.sort((a,b) => {
+                    // Prioriza atrasados, depois os mais próximos
                     if (a.statusType === 'Atrasado' && b.statusType !== 'Atrasado') return -1;
                     if (a.statusType !== 'Atrasado' && b.statusType === 'Atrasado') return 1;
-                    return a.daysLeft - b.daysLeft;
+                    return a.daysLeft - b.daysLeft; // Ordena por dias restantes
                 });
 
                 upcomingBills.forEach(bill => {
-                    const statusClass = bill.statusType === 'Atrasado' ? 'bg-danger' : 'bg-info';
-                    const statusText = bill.statusType === 'Atrasado' ? `Atrasado (${bill.daysLeft} dias)` : `Vence em ${bill.daysLeft} dias`;
-                    html += `<li class="list-group-item">
+                    let statusClass = 'bg-info';
+                    let statusText = `Vence em ${bill.daysLeft} dias`;
+                    if (bill.daysLeft === 0) {
+                        statusClass = 'bg-warning text-dark';
+                        statusText = 'Vence Hoje!';
+                    } else if (bill.daysLeft < 0) {
+                        statusClass = 'bg-danger';
+                        statusText = `Atrasado (${Math.abs(bill.daysLeft)} dias)`;
+                    }
+
+                    html += `<li class="list-group-item d-flex justify-content-between align-items-center">
                                 <span>${bill.name} - ${bill.date}</span>
-                                <span class="badge ${statusClass} rounded-pill">${statusText}</span>
+                                <span class="badge bg-secondary me-2">R$ ${bill.valor.toFixed(2)}</span>
+                                <span class="badge ${statusClass}">${statusText}</span>
                              </li>`;
                 });
             } else {
