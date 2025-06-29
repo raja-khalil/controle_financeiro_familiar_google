@@ -53,10 +53,6 @@
       padding: 0.75rem 1.25rem;
       transition: all 0.3s ease;
     }
-    .btn-primary {
-      background-color: #007bff;
-      border-color: #007bff;
-    }
     .btn-primary:hover {
       background-color: #0056b3;
       border-color: #0056b3;
@@ -170,12 +166,12 @@
       </div>
       <div class="col-md-4 col-sm-6">
         <label for="goalTargetValue" class="form-label">Valor Alvo (R$)</label>
-        <input type="number" step="0.01" class="form-control" id="goalTargetValue" required>
+        <input type="text" class="form-control" id="goalTargetValue" required inputmode="numeric">
         <div class="invalid-feedback">Por favor, insira o valor alvo.</div>
       </div>
       <div class="col-md-4 col-sm-6">
         <label for="goalContributedValue" class="form-label">Valor Contribuído (R$)</label>
-        <input type="number" step="0.01" class="form-control" id="goalContributedValue" value="0" readonly>
+        <input type="text" class="form-control" id="goalContributedValue" value="0" readonly inputmode="numeric">
       </div>
       <div class="col-md-4 col-sm-12">
         <label for="goalStatus" class="form-label">Status</label>
@@ -244,8 +240,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
-  <script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script> <script>
     $(document).ready(function() {
       // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
       // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
@@ -256,11 +251,46 @@
 
       let allGoals = []; // Para armazenar todas as metas para busca
 
+      // Função auxiliar para formatar valor como moeda BRL para exibição (não para inputs mascarados)
+      function formatCurrency(value) {
+          if (typeof value !== 'number') {
+              value = parseFloat(value);
+          }
+          if (isNaN(value)) {
+              return 'R$ 0,00';
+          }
+          return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+
+      // Função auxiliar para limpar a formatação de um valor mascarado e obter o número
+      function unmaskAndParseCurrency(maskedValue) {
+          if (typeof maskedValue === 'string') {
+              const cleanValue = maskedValue.replace(/[R$ ]/g, '').replace(/\./g, '').replace(/,/g, '.');
+              return parseFloat(cleanValue);
+          }
+          return maskedValue; // Se já for um número, retorna como está
+      }
+
+      // APLICAR MÁSCARA NOS CAMPOS DE VALOR
+      $('#goalTargetValue, #goalContributedValue').mask('0.000.000.000.000,00', {reverse: true});
+
+
       // Carregar Metas e Sonhos
       function loadGoals() {
+        console.log("loadGoals: Iniciando carregamento de metas.");
         google.script.run.withSuccessHandler(function(data) {
-          allGoals = data.slice(1); // Ignora o cabeçalho
-          renderGoals(allGoals);
+          console.log("loadGoals: Dados de metas recebidos:", data);
+          if (data && data.length > 0 && data[0] && Array.isArray(data[0])) {
+            allGoals = data.slice(1); // Ignora o cabeçalho
+            renderGoals(allGoals);
+            console.log("loadGoals: Metas carregadas e renderizadas.");
+          } else {
+            console.warn("loadGoals: Nenhuma meta ou dados de meta inválidos recebidos.");
+            $('#goalList').html('<tr><td colspan="8" class="text-center text-muted">Nenhuma meta ou sonho registrado ainda.</td></tr>');
+          }
+        }).withFailureHandler(function(error) {
+            console.error("loadGoals: Erro ao carregar metas do backend:", error.message);
+            $('#goalList').html('<tr><td colspan="8" class="text-center text-danger">Erro ao carregar metas: ' + error.message + '</td></tr>');
         }).getSheetData('Metas');
       }
 
@@ -269,7 +299,7 @@
         if (goalsToRender.length === 0) {
           html = '<tr><td colspan="8" class="text-center text-muted">Nenhuma meta ou sonho registrado ainda.</td></tr>';
         } else {
-            const headers = google.script.run.getSheetData('Metas')[0]; // Busca cabeçalhos novamente para renderGoals
+            const headers = google.script.run.getSheetData('Metas')[0]; 
             const idCol = headers.indexOf('ID');
             const nomeCol = headers.indexOf('Nome da Meta');
             const tipoCol = headers.indexOf('Tipo');
@@ -282,7 +312,7 @@
             const observacoesCol = headers.indexOf('Observacoes');
 
             if ([idCol, nomeCol, tipoCol, valorAlvoCol, valorContribuidoCol, dataInicioCol, dataAlvoCol, statusCol, prioridadeCol, observacoesCol].some(idx => idx === -1)) {
-                console.error("Cabeçalhos da aba 'Metas' inválidos. Verifique a estrutura.");
+                console.error("renderGoals: Cabeçalhos da aba 'Metas' inválidos. Verifique a estrutura. Headers:", headers);
                 $('#goalList').html('<tr><td colspan="8" class="text-center text-danger">Erro: Cabeçalhos da aba Metas incorretos.</td></tr>');
                 return;
             }
@@ -306,8 +336,8 @@
               html += `<tr>
                 <td>${nome}</td>
                 <td>${tipo}</td>
-                <td>R$ ${valorAlvo.toFixed(2)}</td>
-                <td>R$ ${valorContribuido.toFixed(2)}</td>
+                <td>${formatCurrency(valorAlvo)}</td>
+                <td>${formatCurrency(valorContribuido)}</td>
                 <td><div class="progress" style="height: 25px;"><div class="progress-bar ${statusBadgeClass}" role="progressbar" style="width: ${progress}%;" aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="100">${progress}%</div></div></td>
                 <td><span class="badge ${statusBadgeClass}">${status}</span></td>
                 <td>${prioridade}</td>
@@ -322,6 +352,7 @@
             });
           }
           $('#goalList').html(html);
+          console.log("renderGoals: Metas renderizadas na tabela.");
 
           // Event listeners para botões de Editar
           $('.edit-goal-btn').on('click', function() {
@@ -331,8 +362,14 @@
               $('#goalId').val(rowData[idCol]);
               $('#goalName').val(rowData[nomeCol]);
               $('#goalType').val(rowData[tipoCol]);
-              $('#goalTargetValue').val(rowData[valorAlvoCol]);
-              $('#goalContributedValue').val(rowData[valorContribuidoCol]);
+              
+              const targetValueRaw = parseFloat(rowData[valorAlvoCol] || 0);
+              $('#goalTargetValue').val(targetValueRaw); 
+              $('#goalTargetValue').mask('0.000.000.000.000,00', {reverse: true}).val(formatCurrency(targetValueRaw)); 
+
+              const contributedValueRaw = parseFloat(rowData[valorContribuidoCol] || 0);
+              $('#goalContributedValue').val(contributedValueRaw); 
+              $('#goalContributedValue').mask('0.000.000.000.000,00', {reverse: true}).val(formatCurrency(contributedValueRaw)); 
               
               const startDate = new Date(rowData[dataInicioCol]);
               $('#goalStartDate').val(startDate.toISOString().split('T')[0]);
@@ -347,6 +384,7 @@
               $('#goalStatus').val(rowData[statusCol]);
               $('#goalPriority').val(rowData[prioridadeCol]);
               $('#goalObservations').val(rowData[observacoesCol]);
+              console.log("edit-goal-btn: Formulário de meta preenchido para edição.");
             }
           });
 
@@ -358,26 +396,31 @@
             const targetValue = parseFloat($(this).data('target'));
             const remaining = targetValue - currentContributed;
 
-            let contribution = prompt(`Quanto você quer contribuir para "${goalName}"? (Faltam R$ ${remaining.toFixed(2)})`);
-            contribution = parseFloat(contribution);
+            let contributionInput = prompt(`Quanto você quer contribuir para "${goalName}"? (Faltam ${formatCurrency(remaining)})`);
+            
+            let contribution = unmaskAndParseCurrency(contributionInput); // Desmascara e parseia o input do prompt
 
             if (isNaN(contribution) || contribution <= 0) {
               alert('Por favor, insira um valor válido e positivo.');
+              console.warn("contribute-goal-btn: Valor de contribuição inválido.", contributionInput);
               return;
             }
 
+            console.log("contribute-goal-btn: Enviando contribuição:", {goalId, contribution});
             google.script.run
               .withSuccessHandler(function(success) {
                 if (success) {
-                  alert(`Contribuição de R$ ${contribution.toFixed(2)} adicionada à meta "${goalName}"!`);
+                  alert(`Contribuição de ${formatCurrency(contribution)} adicionada à meta "${goalName}"!`);
                   loadGoals();
+                  console.log("contribute-goal-btn: Contribuição registrada com sucesso.");
                 } else {
                   alert('Erro ao adicionar contribuição. Tente novamente ou verifique os logs.');
+                  console.error("contribute-goal-btn: Erro ao registrar contribuição (backend retornou false).");
                 }
               })
               .withFailureHandler(function(error) {
                   alert('Ocorreu um erro ao processar sua contribuição: ' + error.message);
-                  console.error("Erro na contribuição:", error);
+                  console.error("contribute-goal-btn: Erro inesperado do backend ao contribuir:", error);
               })
               .contributeToGoal(goalId, contribution);
           });
@@ -387,6 +430,7 @@
             const goalId = $(this).data('id');
             const goalName = $(this).data('name');
             if (confirm(`Tem certeza que deseja excluir a meta "${goalName}"?`)) {
+              console.log("delete-goal-btn: Solicitando exclusão da meta ID:", goalId);
               google.script.run
                 .withSuccessHandler(function(success) {
                   if (success) {
@@ -395,13 +439,16 @@
                     $('#goalForm')[0].reset(); 
                     $('#goalId').val('');
                     $('#goalForm').removeClass('was-validated');
+                    $('#goalTargetValue, #goalContributedValue').mask('0.000.000.000.000,00', {reverse: true});
+                    console.log("delete-goal-btn: Meta excluída com sucesso.");
                   } else {
                     $('#goalMessage').html('<div class="alert alert-danger">Erro ao excluir meta.</div>');
+                    console.error("delete-goal-btn: Erro ao excluir meta (backend retornou false).");
                   }
                 })
                 .withFailureHandler(function(error) {
                   $('#goalMessage').html('<div class="alert alert-danger">Erro inesperado: ' + error.message + '</div>');
-                  console.error("Erro ao excluir meta:", error);
+                  console.error("delete-goal-btn: Erro inesperado do backend ao excluir meta:", error);
                 })
                 .deleteGoal(goalId);
             }
@@ -414,21 +461,39 @@
       $('#goalForm').on('submit', function(event) {
         event.preventDefault();
         const form = $(this)[0];
+
+        // Obter o valor numérico puro dos campos mascarados
+        const goalTargetValueParsed = unmaskAndParseCurrency($('#goalTargetValue').val());
+        $('#goalTargetValue').val(goalTargetValueParsed); 
+
+        const goalContributedValueParsed = unmaskAndParseCurrency($('#goalContributedValue').val());
+        $('#goalContributedValue').val(goalContributedValueParsed); 
+
         if (!form.checkValidity()) {
           event.stopPropagation();
+          // Se a validação falhar, re-aplicar a máscara de exibição para o usuário
+          if (!isNaN(goalTargetValueParsed)) {
+              $('#goalTargetValue').val(formatCurrency(goalTargetValueParsed));
+          }
+          if (!isNaN(goalContributedValueParsed)) {
+              $('#goalContributedValue').val(formatCurrency(goalContributedValueParsed));
+          }
+          console.warn("goalForm: Formulário inválido.");
+
         } else {
           const goalData = {
             id: $('#goalId').val(),
             nome: $('#goalName').val(),
             tipo: $('#goalType').val(),
-            valorAlvo: parseFloat($('#goalTargetValue').val()),
-            valorContribuido: parseFloat($('#goalContributedValue').val()),
+            valorAlvo: parseFloat(goalTargetValueParsed), 
+            valorContribuido: parseFloat(goalContributedValueParsed), 
             dataInicio: $('#goalStartDate').val(),
             dataAlvo: $('#goalTargetDate').val(),
             status: $('#goalStatus').val(),
             prioridade: $('#goalPriority').val(),
             observacoes: $('#goalObservations').val()
           };
+          console.log("saveGoal: Enviando dados:", goalData);
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
@@ -436,14 +501,17 @@
                 form.reset();
                 form.classList.remove('was-validated');
                 $('#goalId').val('');
+                $('#goalTargetValue, #goalContributedValue').mask('0.000.000.000.000,00', {reverse: true});
                 loadGoals();
+                console.log("saveGoal: Meta salva/atualizada com sucesso.");
               } else {
                 $('#goalMessage').html('<div class="alert alert-danger">Erro ao salvar meta/sonho. Verifique os logs.</div>');
+                console.error("saveGoal: Erro ao salvar meta/sonho (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#goalMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao salvar meta:", error);
+                console.error("saveGoal: Erro inesperado do backend:", error);
             })
             .saveGoal(goalData);
         }
@@ -456,13 +524,14 @@
         $('#goalForm').removeClass('was-validated');
         $('#goalId').val(''); 
         $('#goalMessage').empty();
+        $('#goalTargetValue, #goalContributedValue').mask('0.000.000.000.000,00', {reverse: true});
+        console.log("clearFormBtn: Formulário de meta limpo.");
       });
 
       // Busca parcial no campo de pesquisa
       $('#goalSearch').on('keyup', function() {
         const searchTerm = $(this).val().toLowerCase();
         const filtered = allGoals.filter(row => {
-          // Assegura que os cabeçalhos são buscados APENAS UMA VEZ
           const headers = google.script.run.getSheetData('Metas')[0];
           const nomeCol = headers.indexOf('Nome da Meta');
           const tipoCol = headers.indexOf('Tipo');
@@ -475,12 +544,14 @@
                  (row[prioridadeCol] && row[prioridadeCol].toLowerCase().includes(searchTerm));
         });
         renderGoals(filtered);
+        console.log("goalSearch: Pesquisa de meta executada.");
       });
 
       // Limpar Busca
       $('#clearSearchBtn').on('click', function() {
         $('#goalSearch').val('');
         renderGoals(allGoals);
+        console.log("clearSearchBtn: Pesquisa de meta limpa.");
       });
 
       // Inicialização

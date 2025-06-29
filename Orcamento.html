@@ -156,7 +156,7 @@
       </div>
       <div class="col-md-4 col-sm-12">
         <label for="budgetValue" class="form-label">Valor Orçado (R$)</label>
-        <input type="number" step="0.01" class="form-control" id="budgetValue" required>
+        <input type="text" class="form-control" id="budgetValue" required inputmode="numeric">
         <div class="invalid-feedback">Por favor, insira o valor orçado.</div>
       </div>
       <div class="col-12 mt-3">
@@ -219,8 +219,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
-  <script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script> <script>
     $(document).ready(function() {
       // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
       // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
@@ -231,11 +230,50 @@
 
       let allCategoriesData = []; // Para armazenar todas as categorias
 
+      // Função auxiliar para formatar valor como moeda BRL para exibição (não para inputs mascarados)
+      function formatCurrency(value) {
+          if (typeof value !== 'number') {
+              value = parseFloat(value);
+          }
+          if (isNaN(value)) {
+              return 'R$ 0,00';
+          }
+          return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+
+      // Função auxiliar para limpar a formatação de um valor mascarado e obter o número
+      function unmaskAndParseCurrency(maskedValue) {
+          if (typeof maskedValue === 'string') {
+              // Remove todos os caracteres não numéricos, exceto a vírgula para a decimal,
+              // depois substitui a vírgula por ponto para parseFloat.
+              const cleanValue = maskedValue.replace(/[R$ ]/g, '').replace(/\./g, '').replace(/,/g, '.');
+              return parseFloat(cleanValue);
+          }
+          return maskedValue; // Se já for um número, retorna como está
+      }
+
+      // APLICAR MÁSCARA NOS CAMPOS DE VALOR
+      $('#budgetValue').mask('0.000.000.000.000,00', {reverse: true});
+      // Importante: para campos já preenchidos (ex: em edição), você precisaria:
+      // $('#budgetValue').val(valorPuro).mask('0.000.000.000.000,00', {reverse: true});
+
+
       // Função para carregar categorias para o dropdown de orçamento
       function loadCategoriesForBudget() {
+        console.log("loadCategoriesForBudget: Iniciando carregamento de categorias para orçamento.");
         google.script.run.withSuccessHandler(function(data) {
-          allCategoriesData = data.categorias; // Armazena todas as categorias
-          filterCategoriesForBudgetByType($('#budgetType').val()); // Filtra na inicialização
+          console.log("loadCategoriesForBudget: Dados de categorias recebidos:", data);
+          if (data.categorias && data.categorias.length > 0 && data.categorias[0] && Array.isArray(data.categorias[0])) {
+            allCategoriesData = data.categorias; // Armazena todas as categorias globalmente
+            filterCategoriesForBudgetByType($('#budgetType').val()); // Filtra na inicialização
+            console.log("loadCategoriesForBudget: Categorias carregadas e filtradas inicialmente.");
+          } else {
+            console.warn("loadCategoriesForBudget: Nenhuma categoria ou dados de categoria inválidos recebidos.");
+            $('#budgetCategory').empty().append('<option value="">Nenhuma categoria encontrada.</option>');
+          }
+        }).withFailureHandler(function(error) {
+            console.error("loadCategoriesForBudget: Erro ao carregar categorias do backend:", error.message);
+            $('#budgetCategory').empty().append('<option value="">Erro ao carregar dados.</option>');
         }).getSheetDataBatch({
           categorias: 'Categorias'
         });
@@ -243,30 +281,40 @@
 
       // Nova função para filtrar e popular o dropdown de categorias no formulário de orçamento
       function filterCategoriesForBudgetByType(budgetType) {
+        console.log(`filterCategoriesForBudgetByType: Filtering categories for budget type: ${budgetType}`);
         const categoriaDropdown = $('#budgetCategory');
         categoriaDropdown.empty().append('<option value="">Selecione...</option>');
 
-        if (!allCategoriesData || allCategoriesData.length === 0) return;
+        if (!allCategoriesData || allCategoriesData.length === 0 || !allCategoriesData[0] || !Array.isArray(allCategoriesData[0])) {
+            console.warn("filterCategoriesForBudgetByType: allCategoriesData inválida ou vazia.", allCategoriesData);
+            return;
+        }
 
         const categoriaHeaders = allCategoriesData[0];
         const categoriaNomeCol = categoriaHeaders.indexOf('Nome da Categoria');
         const categoriaTipoCol = categoriaHeaders.indexOf('Tipo');
 
         if (categoriaNomeCol === -1 || categoriaTipoCol === -1) {
-          console.error("Cabeçalhos de categorias inválidos.");
+          console.error(`filterCategoriesForBudgetByType: Cabeçalhos "Nome da Categoria" ou "Tipo" não encontrados na aba Categorias. Headers:`, categoriaHeaders);
           return;
         }
 
         const filteredCategories = allCategoriesData.slice(1).filter(row => {
             if (!budgetType) return false;
+            let sheetType = row[categoriaTipoCol];
             // 'Entrada' no sheet mapeia para 'Receita' no orçamento
+            // Adicionado .trim() para remover espaços extras e garantir comparação exata
             const mappedType = budgetType === 'Receita' ? 'Entrada' : budgetType; 
-            return row[categoriaTipoCol] === mappedType;
+            return (sheetType && typeof sheetType === 'string' && sheetType.trim() === mappedType.trim());
         });
 
         filteredCategories.forEach(row => {
-          categoriaDropdown.append(`<option value="${row[categoriaNomeCol]}">${row[categoriaNomeCol]}</option>`);
+          const categoriaNome = row[categoriaNomeCol];
+          if (categoriaNome) { // Garante que o nome da categoria não é vazio
+            categoriaDropdown.append(`<option value="${categoriaNome}">${categoriaNome}</option>`);
+          }
         });
+        console.log(`filterCategoriesForBudgetByType: Categorias filtradas e populadas. Total: ${filteredCategories.length} para tipo ${budgetType}.`);
       }
 
       // Event listener para mudança no tipo de orçamento (Receita/Despesa)
@@ -279,34 +327,43 @@
       $('#budgetForm').on('submit', function(event) {
         event.preventDefault();
         const form = $(this)[0];
+
+        const budgetValueParsed = unmaskAndParseCurrency($('#budgetValue').val());
+        $('#budgetValue').val(budgetValueParsed); // Define o valor numérico puro para validação temporariamente
+
         if (!form.checkValidity()) {
           event.stopPropagation();
+          if (!isNaN(budgetValueParsed)) { 
+              $('#budgetValue').val(formatCurrency(budgetValueParsed)); 
+          }
         } else {
           const budgetData = {
             anoMes: $('#budgetAnoMes').val(),
             categoria: $('#budgetCategory').val(),
             produtoServico: $('#budgetProductService').val(),
             tipo: $('#budgetType').val(), // Mapeia diretamente Receita/Despesa
-            valorOrcado: parseFloat($('#budgetValue').val())
+            valorOrcado: parseFloat(budgetValueParsed) // Envia o valor numérico puro
           };
+          console.log("saveBudget: Enviando dados:", budgetData);
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
                 $('#budgetMessage').html('<div class="alert alert-success">Orçamento salvo/atualizado com sucesso!</div>');
                 form.reset();
                 form.classList.remove('was-validated');
-                // Se a análise de orçamento estiver visível e for para o mesmo mês, recarrega-a
+                $('#budgetValue').mask('0.000.000.000.000,00', {reverse: true}); // Re-aplica a máscara após o reset
                 if ($('#analysisAnoMes').val() && $('#analysisAnoMes').val() === budgetData.anoMes) {
                     $('#loadBudgetAnalysis').click();
                 }
                 filterCategoriesForBudgetByType(''); // Limpa dropdown
               } else {
                 $('#budgetMessage').html('<div class="alert alert-danger">Erro ao salvar orçamento. Verifique os logs.</div>');
+                console.error("saveBudget: Erro ao salvar orçamento (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#budgetMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao salvar orçamento:", error);
+                console.error("saveBudget: Erro inesperado do backend:", error);
             })
             .saveBudget(budgetData);
         }
@@ -320,10 +377,12 @@
           alert('Por favor, selecione um mês e ano para a análise do orçamento.');
           return;
         }
+        console.log("getBudgetAnalysis: Solicitando análise para AnoMes:", anoMes);
         google.script.run
           .withSuccessHandler(function(data) {
+            console.log("getBudgetAnalysis: Dados de análise recebidos:", data);
             let htmlReceitas = '';
-            if (data.receitas.length === 0) {
+            if (!data || !data.receitas || data.receitas.length === 0) {
               htmlReceitas = '<tr><td colspan="5" class="text-center text-muted">Nenhum dado de receita para o mês selecionado.</td></tr>';
             } else {
               data.receitas.forEach(item => {
@@ -340,9 +399,9 @@
 
                 htmlReceitas += `<tr>
                   <td>${item.categoria}</td>
-                  <td>R$ ${item.estimado.toFixed(2)}</td>
-                  <td>R$ ${item.realizado.toFixed(2)}</td>
-                  <td class="${diferenca >= 0 ? 'text-success' : 'text-danger'}">R$ ${diferenca.toFixed(2)}</td>
+                  <td>${formatCurrency(item.estimado)}</td>
+                  <td>${formatCurrency(item.realizado)}</td>
+                  <td class="${diferenca >= 0 ? 'text-success' : 'text-danger'}">${formatCurrency(diferenca)}</td>
                   <td class="${statusClass}">${statusText}</td>
                 </tr>`;
               });
@@ -351,7 +410,7 @@
 
 
             let htmlDespesas = '';
-            if (data.despesas.length === 0) {
+            if (!data || !data.despesas || data.despesas.length === 0) {
               htmlDespesas = '<tr><td colspan="5" class="text-center text-muted">Nenhum dado de despesa para o mês selecionado.</td></tr>';
             } else {
               data.despesas.forEach(item => {
@@ -368,20 +427,21 @@
 
                 htmlDespesas += `<tr>
                   <td>${item.categoria}</td>
-                  <td>R$ ${item.orcado.toFixed(2)}</td>
-                  <td>R$ ${item.gasto.toFixed(2)}</td>
-                  <td class="${diferenca >= 0 ? 'text-success' : 'text-danger'}">R$ ${diferenca.toFixed(2)}</td>
+                  <td>${formatCurrency(item.orcado)}</td>
+                  <td>${formatCurrency(item.gasto)}</td>
+                  <td class="${diferenca >= 0 ? 'text-success' : 'text-danger'}">${formatCurrency(diferenca)}</td>
                   <td class="${statusClass}">${statusText}</td>
                 </tr>`;
               });
             }
             $('#budgetAnalysisTableDespesas').html(htmlDespesas);
+            console.log("getBudgetAnalysis: Análise de orçamento populada.");
 
           })
           .withFailureHandler(function(error) {
               $('#budgetAnalysisTableReceitas').html('<tr><td colspan="5" class="text-center text-danger">Erro ao carregar análise de receitas: ' + error.message + '</td></tr>');
               $('#budgetAnalysisTableDespesas').html('<tr><td colspan="5" class="text-center text-danger">Erro ao carregar análise de despesas: ' + error.message + '</td></tr>');
-              console.error("Erro na análise de orçamento:", error);
+              console.error("getBudgetAnalysis: Erro na análise de orçamento:", error);
           })
           .getBudgetAnalysis(anoMes);
       });

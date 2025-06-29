@@ -248,10 +248,32 @@
       const mainAppUrl = "https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec"; 
       $('.btn-back').attr('href', mainAppUrl);
 
+      // Função auxiliar para formatar valor como moeda BRL
+      function formatCurrency(value) {
+          if (typeof value !== 'number') {
+              value = parseFloat(value);
+          }
+          if (isNaN(value)) {
+              return 'R$ 0,00';
+          }
+          return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+
+      // Função auxiliar para limpar a formatação e obter o número (para campos de input, se houvesse)
+      function unmaskAndParseCurrency(value) {
+          // Esta função é mais relevante para inputs mascarados, mas mantida por consistência
+          if (typeof value === 'string') {
+              return parseFloat(value.replace(/[R$ ]/g, '').replace(/\./g, '').replace(/,/g, '.'));
+          }
+          return value;
+      }
+
       // Carregar Gastos Médios Mensais (Análise Preditiva Simples)
       $('#loadAverageSpendingsBtn').on('click', function() {
+        console.log("loadAverageSpendingsBtn: Iniciando carregamento de gastos médios.");
         google.script.run
           .withSuccessHandler(function(data) {
+            console.log("loadAverageSpendingsBtn: Dados de gastos médios recebidos:", data);
             let html = '';
             if (Object.keys(data).length === 0) {
               html = '<tr><td colspan="2" class="text-center text-muted">Nenhum dado de gasto para análise.</td></tr>';
@@ -260,15 +282,16 @@
               sortedCategories.forEach(category => {
                 html += `<tr>
                   <td>${category}</td>
-                  <td>R$ ${data[category].toFixed(2)}</td>
+                  <td>${formatCurrency(data[category])}</td>
                 </tr>`;
               });
             }
             $('#averageSpendingsTable').html(html);
+            console.log("loadAverageSpendingsBtn: Tabela de gastos médios populada.");
           })
           .withFailureHandler(function(error) {
               $('#averageSpendingsTable').html('<tr><td colspan="2" class="text-center text-danger">Erro ao carregar análise: ' + error.message + '</td></tr>');
-              console.error("Erro na análise de gastos médios:", error);
+              console.error("loadAverageSpendingsBtn: Erro na análise de gastos médios:", error);
           })
           .getAverageMonthlySpendings();
       });
@@ -283,26 +306,28 @@
 
         if (!year) {
           alert('Por favor, insira o ano para a análise de fluxo de caixa.');
+          console.warn("loadFlowAnalysis: Ano não selecionado.");
           return;
         }
-
+        console.log(`loadFlowAnalysis: Solicitando fluxo de caixa para Ano: ${year}, Tipo: ${type}`);
         google.script.run
           .withSuccessHandler(function(data) {
+            console.log("loadFlowAnalysis: Dados de fluxo de caixa recebidos:", data);
             let html = '';
             let labels = [];
             let revenues = [];
             let expenses = [];
             let balances = [];
 
-            if (data.length === 0) {
+            if (!data || data.length === 0) {
               html = '<tr><td colspan="4" class="text-center text-muted">Nenhum dado de transação para o período e ano selecionados.</td></tr>';
             } else {
               data.forEach(item => {
                 html += `<tr>
                   <td>${item.period}</td>
-                  <td class="text-success">R$ ${item.revenues.toFixed(2)}</td>
-                  <td class="text-danger">R$ ${item.expenses.toFixed(2)}</td>
-                  <td class="${item.balance >= 0 ? 'text-success' : 'text-danger'}">R$ ${item.balance.toFixed(2)}</td>
+                  <td class="text-success">${formatCurrency(item.revenues)}</td>
+                  <td class="text-danger">${formatCurrency(item.expenses)}</td>
+                  <td class="${item.balance >= 0 ? 'text-success' : 'text-danger'}">${formatCurrency(item.balance)}</td>
                 </tr>`;
                 labels.push(item.period);
                 revenues.push(item.revenues);
@@ -311,6 +336,7 @@
               });
             }
             $('#flowAnalysisTable').html(html);
+            console.log("loadFlowAnalysis: Tabela de fluxo de caixa populada.");
 
             // Renderizar gráfico se houver dados
             const ctx = document.getElementById('flowChart').getContext('2d');
@@ -361,6 +387,12 @@
                     title: {
                       display: true,
                       text: 'Valor (R$)'
+                    },
+                    // Adapta o formatador do eixo Y para moeda
+                    ticks: {
+                        callback: function(value, index, values) {
+                            return formatCurrency(value);
+                        }
                     }
                   },
                   x: {
@@ -372,11 +404,12 @@
                 }
               }
             });
+            console.log("loadFlowAnalysis: Gráfico de fluxo de caixa renderizado.");
 
           })
           .withFailureHandler(function(error) {
               $('#flowAnalysisTable').html('<tr><td colspan="4" class="text-center text-danger">Erro ao carregar fluxo de caixa: ' + error.message + '</td></tr>');
-              console.error("Erro no fluxo de caixa:", error);
+              console.error("loadFlowAnalysis: Erro no fluxo de caixa:", error);
               $('#flowChart').hide(); // Esconde o gráfico em caso de erro
           })
           .getFinancialFlowAnalysis(year, type); 
@@ -385,10 +418,12 @@
       // --- Funções para Sugestões de Economia ---
 
       $('#loadSavingsSuggestions').on('click', function() {
+        console.log("loadSavingsSuggestions: Solicitando sugestões de economia.");
         google.script.run
           .withSuccessHandler(function(data) {
+            console.log("loadSavingsSuggestions: Dados de sugestões recebidos:", data);
             let html = '';
-            if (data.length === 0 || (data.length === 1 && data[0].categoria === 'N/A')) {
+            if (!data || data.length === 0 || (data.length === 1 && data[0].category === 'N/A')) { // Alterado de 'categoria' para 'category' para consistência
               html = '<p class="text-center text-muted">Não há dados suficientes para gerar sugestões de economia.</p>';
             } else {
               html += '<p class="fw-bold">Com base em seus gastos médios por categoria, aqui estão algumas sugestões:</p>';
@@ -396,21 +431,22 @@
               data.forEach(item => {
                 html += `<li class="list-group-item list-group-item-action suggestion d-flex flex-column align-items-start">
                             <div class="w-100 d-flex justify-content-between align-items-center mb-1">
-                                <strong>${item.categoria}</strong>: Gasto médio mensal de R$ ${item.gastoMedio.toFixed(2)}. 
+                                <strong>${item.category}</strong>: Gasto médio mensal de ${formatCurrency(item.averageSpend)}. 
                                 <span class="badge bg-warning text-dark">Potencial de economia!</span>
                             </div>
-                            <small class="text-muted">${item.sugestao}</small>
+                            <small class="text-muted">${item.suggestion}</small>
                          </li>`;
               });
               html += '</ul>';
             }
             $('#savingsSuggestionsContent').html(html);
+            console.log("loadSavingsSuggestions: Sugestões de economia populadas.");
           })
           .withFailureHandler(function(error) {
               $('#savingsSuggestionsContent').html('<div class="alert alert-danger">Erro ao gerar sugestões: ' + error.message + '</div>');
-              console.error("Erro nas sugestões de economia:", error);
+              console.error("loadSavingsSuggestions: Erro nas sugestões de economia:", error);
           })
-          .getSpendingSuggestions(); // Chamada para a nova função no backend (renomeada de getSavingsSuggestions)
+          .getSpendingSuggestions(); 
       });
       
     });

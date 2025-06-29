@@ -53,10 +53,6 @@
       padding: 0.75rem 1.25rem;
       transition: all 0.3s ease;
     }
-    .btn-primary {
-      background-color: #007bff;
-      border-color: #007bff;
-    }
     .btn-primary:hover {
       background-color: #0056b3;
       border-color: #0056b3;
@@ -139,7 +135,7 @@
 </head>
 <body>
   <div class="container">
-    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
+    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
     
     <h1 class="mb-4">Gerenciar Contas</h1>
 
@@ -157,12 +153,12 @@
       </div>
       <div class="col-md-4 col-sm-6">
         <label for="accountInitialBalance" class="form-label">Saldo Inicial (R$)</label>
-        <input type="number" step="0.01" class="form-control" id="accountInitialBalance" required>
+        <input type="text" class="form-control" id="accountInitialBalance" required inputmode="numeric">
         <div class="invalid-feedback">Por favor, insira o saldo inicial.</div>
       </div>
       <div class="col-md-4 col-sm-6">
         <label for="accountCurrentBalance" class="form-label">Saldo Atual (R$)</label>
-        <input type="number" step="0.01" class="form-control" id="accountCurrentBalance" readonly>
+        <input type="text" class="form-control" id="accountCurrentBalance" readonly inputmode="numeric">
         <div class="form-text">Atualizado automaticamente.</div>
       </div>
        <div class="col-md-4 col-sm-12">
@@ -212,25 +208,65 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
-  <script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script> <script>
     $(document).ready(function() {
       // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
       // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
       // VOCÊ DEVE ATUALIZAR ESTE URL EM TODOS OS ARQUIVOS HTML DO SEU PROJETO.
-      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec
+      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec
       const mainAppUrl = "https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec"; 
       $('.btn-back').attr('href', mainAppUrl);
 
       let allAccounts = []; // Para armazenar todas as contas e permitir busca
       let accountsHeaders = []; // Para armazenar os cabeçalhos uma vez
 
+      // Função auxiliar para formatar valor como moeda BRL para exibição (não para inputs mascarados)
+      function formatCurrency(value) {
+          if (typeof value !== 'number') {
+              value = parseFloat(value);
+          }
+          if (isNaN(value)) {
+              return 'R$ 0,00';
+          }
+          return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+
+      // Função auxiliar para limpar a formatação de um valor mascarado e obter o número
+      function unmaskAndParseCurrency(maskedValue) {
+          if (typeof maskedValue === 'string') {
+              // Remove todos os caracteres não numéricos, exceto a vírgula para a decimal,
+              // depois substitui a vírgula por ponto para parseFloat.
+              const cleanValue = maskedValue.replace(/[R$ ]/g, '').replace(/\./g, '').replace(/,/g, '.');
+              return parseFloat(cleanValue);
+          }
+          return maskedValue; // Se já for um número, retorna como está
+      }
+
+      // APLICAR MÁSCARA NOS CAMPOS DE VALOR
+      $('#accountInitialBalance, #accountCurrentBalance').mask('0.000.000.000.000,00', {reverse: true});
+
+
       // Carregar Contas
       function loadAccounts() {
+        console.log("loadAccounts: Iniciando carregamento de contas.");
         google.script.run.withSuccessHandler(function(data) {
+          console.log("loadAccounts: Dados de contas recebidos:", data);
+          // Adicionado verificação de dados vazios ou formato inesperado
+          if (!data || data.length === 0 || !data[0] || !Array.isArray(data[0])) {
+            console.warn("loadAccounts: Nenhuma conta ou dados de conta inválidos recebidos.");
+            $('#accountList').html('<tr><td colspan="6" class="text-center text-muted">Nenhuma conta registrada ainda ou erro nos dados.</td></tr>');
+            accountsHeaders = []; // Garante que headers fiquem vazios em caso de erro
+            allAccounts = []; // Garante que a lista de contas fique vazia
+            return;
+          }
+
           accountsHeaders = data[0]; // Armazena os cabeçalhos
           allAccounts = data.slice(1); // Ignora o cabeçalho e armazena
           renderAccounts(allAccounts);
+          console.log("loadAccounts: Contas carregadas e renderizadas.");
+        }).withFailureHandler(function(error) {
+            console.error("loadAccounts: Erro ao carregar contas do backend:", error.message);
+            $('#accountList').html('<tr><td colspan="6" class="text-center text-danger">Erro ao carregar contas: ' + error.message + '</td></tr>');
         }).getSheetData('Contas');
       }
 
@@ -240,6 +276,14 @@
           html = '<tr><td colspan="6" class="text-center text-muted">Nenhuma conta registrada ainda.</td></tr>';
         } else {
           // Os índices das colunas são obtidos dos cabeçalhos armazenados
+          // Verifica se accountsHeaders foi populado corretamente
+          if (!accountsHeaders || accountsHeaders.length === 0) {
+              console.error("renderAccounts: Cabeçalhos de contas não disponíveis. Possível erro em loadAccounts.");
+              html = '<tr><td colspan="6" class="text-center text-danger">Erro interno: Cabeçalhos não carregados.</td></tr>';
+              $('#accountList').html(html);
+              return;
+          }
+
           const idCol = accountsHeaders.indexOf('ID');
           const nomeCol = accountsHeaders.indexOf('Nome da Conta');
           const bancoCol = accountsHeaders.indexOf('Banco');
@@ -247,42 +291,59 @@
           const saldoInicialCol = accountsHeaders.indexOf('Saldo Inicial');
           const saldoAtualCol = accountsHeaders.indexOf('Saldo Atual');
 
+          if (idCol === -1 || nomeCol === -1 || bancoCol === -1 || tipoCol === -1 || saldoInicialCol === -1 || saldoAtualCol === -1) {
+              console.error("renderAccounts: Cabeçalhos da aba 'Contas' inválidos. Verifique a estrutura: 'ID', 'Nome da Conta', 'Banco', 'Tipo', 'Saldo Inicial', 'Saldo Atual'. Headers atuais:", accountsHeaders);
+              $('#accountList').html('<tr><td colspan="6" class="text-center text-danger">Erro: Estrutura da aba Contas incorreta.</td></tr>');
+              return;
+          }
+
           accountsToRender.forEach(row => {
             const accountId = row[idCol];
             const accountName = row[nomeCol];
             const accountBank = row[bancoCol];
             const accountType = row[tipoCol];
-            const initialBalance = parseFloat(row[saldoInicialCol] || 0).toFixed(2);
-            const currentBalance = parseFloat(row[saldoAtualCol] || 0).toFixed(2);
+            const initialBalance = parseFloat(row[saldoInicialCol] || 0);
+            const currentBalance = parseFloat(row[saldoAtualCol] || 0);
 
+            // Garante que os valores não são undefined/null antes de usar
             html += `<tr>
-              <td>${accountName}</td>
-              <td>${accountBank}</td>
-              <td>${accountType}</td>
-              <td>R$ ${initialBalance}</td>
-              <td>R$ ${currentBalance}</td>
+              <td>${accountName || ''}</td>
+              <td>${accountBank || ''}</td>
+              <td>${accountType || ''}</td>
+              <td>${formatCurrency(initialBalance)}</td>
+              <td>${formatCurrency(currentBalance)}</td>
               <td>
                 <div class="btn-group-vertical" role="group" aria-label="Ações da Conta">
                   <button class="btn btn-sm btn-info edit-btn" data-id="${accountId}" 
-                          data-name="${accountName}" data-bank="${accountBank}" 
+                          data-name="${accountName || ''}" data-bank="${accountBank || ''}" 
                           data-initial="${initialBalance}" data-current="${currentBalance}"
-                          data-type="${accountType}">Editar</button>
-                  <button class="btn btn-sm btn-danger delete-btn" data-id="${accountId}" data-name="${accountName}">Excluir</button>
+                          data-type="${accountType || ''}">Editar</button>
+                  <button class="btn btn-sm btn-danger delete-btn" data-id="${accountId}" data-name="${accountName || ''}">Excluir</button>
                 </div>
               </td>
             </tr>`;
           });
         }
         $('#accountList').html(html);
+        console.log("renderAccounts: Contas renderizadas na tabela.");
 
         // Adicionar listeners para botões de Editar
         $('.edit-btn').on('click', function() {
+          const initialBalanceRaw = parseFloat($(this).data('initial'));
+          const currentBalanceRaw = parseFloat($(this).data('current'));
+
           $('#accountId').val($(this).data('id'));
           $('#accountName').val($(this).data('name'));
           $('#accountBank').val($(this).data('bank'));
-          $('#accountInitialBalance').val($(this).data('initial'));
-          $('#accountCurrentBalance').val($(this).data('current'));
+          
+          $('#accountInitialBalance').val(initialBalanceRaw); 
+          $('#accountInitialBalance').mask('0.000.000.000.000,00', {reverse: true}).val(formatCurrency(initialBalanceRaw)); 
+
+          $('#accountCurrentBalance').val(currentBalanceRaw); 
+          $('#accountCurrentBalance').mask('0.000.000.000.000,00', {reverse: true}).val(formatCurrency(currentBalanceRaw)); 
+
           $('#accountType').val($(this).data('type'));
+          console.log("edit-btn: Formulário de conta preenchido para edição.");
         });
 
         // Adicionar listeners para botões de Excluir
@@ -290,6 +351,7 @@
           const accountId = $(this).data('id');
           const accountName = $(this).data('name');
           if (confirm(`Tem certeza que deseja excluir a conta "${accountName}"?`)) {
+            console.log("delete-btn: Solicitando exclusão da conta ID:", accountId);
             google.script.run
               .withSuccessHandler(function(success) {
                 if (success) {
@@ -298,13 +360,16 @@
                   $('#accountForm')[0].reset(); 
                   $('#accountId').val('');
                   $('#accountForm').removeClass('was-validated');
+                  $('#accountInitialBalance, #accountCurrentBalance').mask('0.000.000.000.000,00', {reverse: true});
+                  console.log("delete-btn: Conta excluída com sucesso.");
                 } else {
                   $('#accountMessage').html('<div class="alert alert-danger">Erro ao excluir conta.</div>');
+                  console.error("delete-btn: Erro ao excluir conta (backend retornou false).");
                 }
               })
               .withFailureHandler(function(error) {
-                $('#accountMessage').html('<div class="alert alert-danger">Erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao excluir conta:", error);
+                $('#accountMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
+                console.error("delete-btn: Erro inesperado do backend ao excluir conta:", error);
               })
               .deleteAccount(accountId);
           }
@@ -315,22 +380,37 @@
       $('#accountForm').on('submit', function(event) {
         event.preventDefault();
         const form = $(this)[0];
+
+        const accountInitialBalanceParsed = unmaskAndParseCurrency($('#accountInitialBalance').val());
+        $('#accountInitialBalance').val(accountInitialBalanceParsed); 
+
+        const accountCurrentBalanceParsed = unmaskAndParseCurrency($('#accountCurrentBalance').val());
+        $('#accountCurrentBalance').val(accountCurrentBalanceParsed); 
+
+
         if (!form.checkValidity()) {
           event.stopPropagation();
+          if (!isNaN(accountInitialBalanceParsed)) {
+              $('#accountInitialBalance').val(formatCurrency(accountInitialBalanceParsed));
+          }
+          if (!isNaN(accountCurrentBalanceParsed)) {
+              $('#accountCurrentBalance').val(formatCurrency(accountCurrentBalanceParsed));
+          }
+          console.warn("accountForm: Formulário inválido.");
+
         } else {
           const accountData = {
             id: $('#accountId').val(),
             nome: $('#accountName').val(),
             banco: $('#accountBank').val(),
-            saldoInicial: parseFloat($('#accountInitialBalance').val()),
-            saldoAtual: parseFloat($('#accountCurrentBalance').val()), // Mantém o valor atual se for edição
+            saldoInicial: parseFloat(accountInitialBalanceParsed), 
+            saldoAtual: parseFloat(accountCurrentBalanceParsed), 
             tipo: $('#accountType').val()
           };
-          // Se for uma nova conta, o saldo atual é o saldo inicial
           if (!accountData.id) {
               accountData.saldoAtual = accountData.saldoInicial;
           }
-
+          console.log("saveAccount: Enviando dados:", accountData);
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
@@ -338,14 +418,17 @@
                 form.reset();
                 form.classList.remove('was-validated');
                 $('#accountId').val(''); 
+                $('#accountInitialBalance, #accountCurrentBalance').mask('0.000.000.000.000,00', {reverse: true});
                 loadAccounts();
+                console.log("saveAccount: Conta salva/atualizada com sucesso.");
               } else {
                 $('#accountMessage').html('<div class="alert alert-danger">Erro ao salvar conta. Verifique os logs.</div>');
+                console.error("saveAccount: Erro ao salvar conta (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#accountMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao salvar conta:", error);
+                console.error("saveAccount: Erro inesperado do backend:", error);
             })
             .saveAccount(accountData);
         }
@@ -358,12 +441,22 @@
         $('#accountForm').removeClass('was-validated');
         $('#accountId').val(''); 
         $('#accountMessage').empty();
+        $('#accountInitialBalance').val('');
+        $('#accountCurrentBalance').val('');
+        $('#accountInitialBalance, #accountCurrentBalance').mask('0.000.000.000.000,00', {reverse: true});
+        console.log("clearFormBtn: Formulário de conta limpo.");
       });
 
       // Busca parcial no campo de pesquisa
       $('#accountSearch').on('keyup', function() {
         const searchTerm = $(this).val().toLowerCase();
-        // Os índices das colunas são obtidos dos cabeçalhos armazenados
+        // Verifica se accountsHeaders foi populado corretamente
+        if (!accountsHeaders || accountsHeaders.length === 0) {
+            console.warn("accountSearch: Cabeçalhos não disponíveis para busca.");
+            renderAccounts([]); // Limpa a tabela se os cabeçalhos não estão lá
+            return;
+        }
+
         const nomeCol = accountsHeaders.indexOf('Nome da Conta');
         const bancoCol = accountsHeaders.indexOf('Banco');
         const tipoCol = accountsHeaders.indexOf('Tipo');
@@ -374,12 +467,14 @@
                  (tipoCol !== -1 && row[tipoCol] && String(row[tipoCol]).toLowerCase().includes(searchTerm));
         });
         renderAccounts(filtered);
+        console.log("accountSearch: Pesquisa de conta executada.");
       });
 
       // Limpar Busca
       $('#clearSearchBtn').on('click', function() {
         $('#accountSearch').val('');
         renderAccounts(allAccounts);
+        console.log("clearSearchBtn: Pesquisa de conta limpa.");
       });
 
       // Inicialização

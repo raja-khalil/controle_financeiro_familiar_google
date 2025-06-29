@@ -138,7 +138,7 @@
 </head>
 <body>
   <div class="container">
-    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
+    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
     
     <h1 class="mb-4">Transações Financeiras</h1>
 
@@ -171,7 +171,7 @@
           </div>
           <div class="col-md-4 col-sm-12">
             <label for="valorTransacao" class="form-label">Valor (R$)</label>
-            <input type="number" step="0.01" class="form-control" id="valorTransacao" required>
+            <input type="text" class="form-control" id="valorTransacao" required inputmode="numeric">
             <div class="invalid-feedback">Por favor, insira o valor.</div>
           </div>
           <div class="col-md-6 col-sm-12">
@@ -190,6 +190,21 @@
             <select class="form-select" id="contaTransacao" required>
               </select>
             <div class="invalid-feedback">Por favor, selecione a conta.</div>
+          </div>
+          <div class="col-md-6 col-sm-12">
+            <label for="tipoPagamento" class="form-label">Tipo de Pagamento</label>
+            <select class="form-select" id="tipoPagamento" required>
+              <option value="">Selecione...</option>
+              <option value="Dinheiro">Dinheiro</option>
+              <option value="Pix">Pix</option>
+              <option value="Cartão de Débito">Cartão de Débito</option>
+              <option value="Cartão de Crédito">Cartão de Crédito</option>
+              <option value="Boleto">Boleto</option>
+              <option value="Transferência Bancária">Transferência Bancária</option>
+              <option value="Débito Automático">Débito Automático</option>
+              <option value="Outro">Outro</option>
+            </select>
+            <div class="invalid-feedback">Por favor, selecione o tipo de pagamento.</div>
           </div>
           <div class="col-md-6 col-sm-12">
             <label for="pessoaTransacao" class="form-label">Pessoa</label>
@@ -218,7 +233,7 @@
           </div>
           <div class="col-md-8 col-sm-12">
             <label for="transferValue" class="form-label">Valor (R$)</label>
-            <input type="number" step="0.01" class="form-control" id="transferValue" required>
+            <input type="text" class="form-control" id="transferValue" required inputmode="numeric">
             <div class="invalid-feedback">Por favor, insira o valor da transferência.</div>
           </div>
           <div class="col-md-6 col-sm-12">
@@ -260,11 +275,12 @@
             <th>Descrição</th>
             <th>Categoria</th>
             <th>Conta</th>
+            <th>Tipo Pgto.</th>
             <th>Pessoa</th>
           </tr>
         </thead>
         <tbody id="transactionHistory">
-          <tr><td colspan="7" class="text-center">Carregando transações...</td></tr>
+          <tr><td colspan="8" class="text-center">Carregando transações...</td></tr>
         </tbody>
       </table>
     </div>
@@ -273,13 +289,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
-  <script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script> <script>
     $(document).ready(function() {
       // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
       // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
       // VOCÊ DEVE ATUALIZAR ESTE URL EM TODOS OS ARQUIVOS HTML DO SEU PROJETO.
-      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec
+      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec
       const mainAppUrl = "https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec"; 
       $('.btn-back').attr('href', mainAppUrl);
 
@@ -287,28 +302,95 @@
       let allAccountsData = []; // Variável global para armazenar todas as contas
       let allPeopleData = []; // Variável global para armazenar todas as pessoas
 
+      // Função auxiliar para formatar valor como moeda BRL para exibição (não para inputs mascarados)
+      function formatCurrency(value) {
+          if (typeof value !== 'number') {
+              value = parseFloat(value);
+          }
+          if (isNaN(value)) {
+              return 'R$ 0,00';
+          }
+          return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+
+      // Função auxiliar para limpar a formatação de um valor mascarado e obter o número
+      function unmaskAndParseCurrency(maskedValue) {
+          if (typeof maskedValue === 'string') {
+              // Remove todos os caracteres não numéricos, exceto a vírgula para a decimal,
+              // depois substitui a vírgula por ponto para parseFloat.
+              const cleanValue = maskedValue.replace(/[R$ ]/g, '').replace(/\./g, '').replace(/,/g, '.');
+              return parseFloat(cleanValue);
+          }
+          return maskedValue; // Se já for um número, retorna como está
+      }
+
+      // APLICAR MÁSCARA NOS CAMPOS DE VALOR
+      $('#valorTransacao, #transferValue').mask('0.000.000.000.000,00', {reverse: true});
+      // Para campos que são inicialmente preenchidos e devem mostrar a máscara (ex: ao editar):
+      // $('#someInput').val(valorPuro).mask('0.000.000.000.000,00', {reverse: true});
+      // No caso de edição, a função `edit-btn` ou similar deve preencher o campo com o valor puro
+      // e então o jQuery Mask fará a mágica.
+
+      // Funções para aplicar máscaras nos modais ao serem abertos (se existirem e tiverem campos de valor)
+      $('#paymentModal').on('shown.bs.modal', function() {
+        $('#paymentAmount').mask('0.000.000.000.000,00', {reverse: true});
+      });
+      $('#updateValueModal').on('shown.bs.modal', function() {
+        $('#newInvestValue').mask('0.000.000.000.000,00', {reverse: true});
+      });
+      $('#movementModal').on('shown.bs.modal', function() {
+        $('#movementValue').mask('0.000.000.000.000,00', {reverse: true});
+      });
+      $('#goalForm').on('shown.bs.modal', function() { // Se goalForm fosse um modal
+        $('#goalTargetValue, #goalContributedValue').mask('0.000.000.000.000,00', {reverse: true});
+      });
+      $('#accountForm').on('shown.bs.modal', function() { // Se accountForm fosse um modal
+        $('#accountInitialBalance').mask('0.000.000.000.000,00', {reverse: true});
+      });
+      $('#debtForm').on('shown.bs.modal', function() { // Se debtForm fosse um modal
+        $('#debtTotalValue, #debtPaidValue').mask('0.000.000.000.000,00', {reverse: true});
+      });
 
       // Função para carregar todos os dados das listas suspensas (Contas, Categorias, Pessoas)
       function loadAllDropdownData() {
+        console.log("loadAllDropdownData: Iniciando carregamento de dados de dropdowns.");
         google.script.run.withSuccessHandler(function(data) {
-          allCategoriesData = data.categorias; // Armazena todas as categorias globalmente
-          allAccountsData = data.contas; // Armazena todas as contas globalmente
-          allPeopleData = data.pessoas; // Armazena todas as pessoas globalmente
+          console.log("loadAllDropdownData: Dados recebidos do backend:", data);
 
-          // Carrega Contas para Formulário de Transação
-          populateAccountDropdown($('#contaTransacao'), allAccountsData);
-          // Carrega Contas para Formulário de Transferência
-          populateAccountDropdown($('#fromAccount'), allAccountsData);
-          populateAccountDropdown($('#toAccount'), allAccountsData);
+          if (data.categorias && data.categorias.length > 0) {
+            allCategoriesData = data.categorias; // Armazena todas as categorias globalmente
+            filterCategoriesByType($('#tipoTransacao').val()); // Filtra na inicialização
+            console.log("loadAllDropdownData: Categorias carregadas.");
+          } else {
+            console.warn("loadAllDropdownData: Nenhuma categoria ou dados de categoria inválidos recebidos.");
+            $('#categoriaTransacao').empty().append('<option value="">Nenhuma categoria encontrada.</option>');
+          }
 
-          // Carrega Pessoas para Formulário de Transação
-          populatePersonDropdown($('#pessoaTransacao'), allPeopleData);
-          // Carrega Pessoas para Formulário de Transferência
-          populatePersonDropdown($('#transferPerson'), allPeopleData);
+          if (data.contas && data.contas.length > 0) {
+            allAccountsData = data.contas; // Armazena todas as contas globalmente
+            populateAccountDropdown($('#contaTransacao'), allAccountsData);
+            populateAccountDropdown($('#fromAccount'), allAccountsData);
+            populateAccountDropdown($('#toAccount'), allAccountsData);
+            console.log("loadAllDropdownData: Contas carregadas.");
+          } else {
+            console.warn("loadAllDropdownData: Nenhuma conta ou dados de conta inválidos recebidos.");
+            $('#contaTransacao, #fromAccount, #toAccount').empty().append('<option value="">Nenhuma conta encontrada.</option>');
+          }
 
-          // Inicializa as categorias com base no tipo de transação padrão ou selecionado
-          filterCategoriesByType($('#tipoTransacao').val());
+          if (data.pessoas && data.pessoas.length > 0) {
+            allPeopleData = data.pessoas; // Armazena todas as pessoas globalmente
+            populatePersonDropdown($('#pessoaTransacao'), allPeopleData);
+            populatePersonDropdown($('#transferPerson'), allPeopleData);
+            console.log("loadAllDropdownData: Pessoas carregadas.");
+          } else {
+            console.warn("loadAllDropdownData: Nenhuma pessoa ou dados de pessoa inválidos recebidos.");
+            $('#pessoaTransacao, #transferPerson').empty().append('<option value="">Nenhuma pessoa encontrada.</option>');
+          }
 
+        }).withFailureHandler(function(error) {
+          console.error("loadAllDropdownData: Erro ao carregar dados do backend:", error.message);
+          $('#categoriaTransacao, #contaTransacao, #fromAccount, #toAccount, #pessoaTransacao, #transferPerson')
+            .empty().append('<option value="">Erro ao carregar dados.</option>');
         }).getSheetDataBatch({
           categorias: 'Categorias',
           contas: 'Contas',
@@ -318,66 +400,103 @@
 
       // Função auxiliar para popular dropdown de contas
       function populateAccountDropdown(dropdownElement, data) {
+          console.log(`populateAccountDropdown: Populating ${dropdownElement.attr('id')}`);
+          dropdownElement.empty().append('<option value="">Selecione...</option>');
+
+          if (!data || data.length === 0 || !data[0] || !Array.isArray(data[0])) {
+              console.warn(`populateAccountDropdown: Dados inválidos ou vazios para ${dropdownElement.attr('id')}.`, data);
+              return;
+          }
+
           const contasHeaders = data[0];
           const contaNomeCol = contasHeaders.indexOf('Nome da Conta');
           const contaBancoCol = contasHeaders.indexOf('Banco');
           
-          if (contaNomeCol !== -1 && contaBancoCol !== -1) {
-            dropdownElement.empty().append('<option value="">Selecione...</option>');
-            data.slice(1).forEach(row => {
-              const nomeConta = row[contaNomeCol];
-              const banco = row[contaBancoCol];
-              dropdownElement.append(`<option value="${nomeConta}">${nomeConta} (${banco || 'N/A'})</option>`);
-            });
+          if (contaNomeCol === -1 || contaBancoCol === -1) {
+            console.error(`populateAccountDropdown: Cabeçalhos "Nome da Conta" ou "Banco" não encontrados na aba Contas. Headers:`, contasHeaders);
+            return;
           }
+
+          data.slice(1).forEach(row => {
+            const nomeConta = row[contaNomeCol];
+            const banco = row[contaBancoCol];
+            if (nomeConta) { // Garante que o nome da conta não é vazio
+                dropdownElement.append(`<option value="${nomeConta}">${nomeConta} (${banco || 'N/A'})</option>`);
+            }
+          });
+          console.log(`populateAccountDropdown: ${dropdownElement.attr('id')} populado com ${data.slice(1).length} itens.`);
       }
 
       // Função auxiliar para popular dropdown de pessoas
       function populatePersonDropdown(dropdownElement, data) {
+          console.log(`populatePersonDropdown: Populating ${dropdownElement.attr('id')}`);
+          dropdownElement.empty().append('<option value="">Selecione...</option>');
+
+          if (!data || data.length === 0 || !data[0] || !Array.isArray(data[0])) {
+              console.warn(`populatePersonDropdown: Dados inválidos ou vazios para ${dropdownElement.attr('id')}.`, data);
+              return;
+          }
+
           const pessoasHeaders = data[0];
           const pessoaNomeCol = pessoasHeaders.indexOf('Nome');
 
-          if (pessoaNomeCol !== -1) {
-            dropdownElement.empty().append('<option value="">Selecione...</option>');
-            data.slice(1).forEach(row => {
-              dropdownElement.append(`<option value="${row[pessoaNomeCol]}">${row[pessoaNomeCol]}</option>`);
-            });
+          if (pessoaNomeCol === -1) {
+            console.error(`populatePersonDropdown: Cabeçalho "Nome" não encontrado na aba Pessoas. Headers:`, pessoasHeaders);
+            return;
           }
+
+          data.slice(1).forEach(row => {
+            const pessoaNome = row[pessoaNomeCol];
+            if (pessoaNome) { // Garante que o nome da pessoa não é vazio
+                dropdownElement.append(`<option value="${pessoaNome}">${pessoaNome}</option>`);
+            }
+          });
+          console.log(`populatePersonDropdown: ${dropdownElement.attr('id')} populado com ${data.slice(1).length} itens.`);
       }
 
       // Nova função para filtrar e popular o dropdown de categorias
       function filterCategoriesByType(transactionType) {
+        console.log(`filterCategoriesByType: Filtering categories for type: ${transactionType}`);
         const categoriaDropdown = $('#categoriaTransacao');
         categoriaDropdown.empty().append('<option value="">Selecione...</option>');
 
-        if (!allCategoriesData || allCategoriesData.length === 0) return;
+        if (!allCategoriesData || allCategoriesData.length === 0 || !allCategoriesData[0] || !Array.isArray(allCategoriesData[0])) {
+            console.warn("filterCategoriesByType: allCategoriesData inválida ou vazia.", allCategoriesData);
+            return;
+        }
 
         const categoriaHeaders = allCategoriesData[0];
         const categoriaNomeCol = categoriaHeaders.indexOf('Nome da Categoria');
         const categoriaTipoCol = categoriaHeaders.indexOf('Tipo');
 
         if (categoriaNomeCol === -1 || categoriaTipoCol === -1) {
-          console.error("Cabeçalhos de categorias inválidos.");
+          console.error(`filterCategoriesByType: Cabeçalhos "Nome da Categoria" ou "Tipo" não encontrados na aba Categorias. Headers:`, categoriaHeaders);
           return;
         }
-
+        
         const filteredCategories = allCategoriesData.slice(1).filter(row => {
             if (!transactionType) return false;
             let sheetType = row[categoriaTipoCol];
             // Mapeia 'Saída' do HTML para 'Despesa' na planilha
-            if (transactionType === 'Saída' && sheetType === 'Despesa') {
+            // Adicionado .trim() para remover espaços extras e garantir comparação exata
+            if (transactionType === 'Saída' && (sheetType && typeof sheetType === 'string' && sheetType.trim() === 'Despesa')) {
                 return true; 
             }
             // Mapeia 'Entrada' do HTML para 'Entrada' na planilha
-            if (transactionType === 'Entrada' && sheetType === 'Entrada') {
+            // Adicionado .trim() para remover espaços extras e garantir comparação exata
+            if (transactionType === 'Entrada' && (sheetType && typeof sheetType === 'string' && sheetType.trim() === 'Entrada')) {
                 return true;
             }
-            return false; // Não houve correspondência
+            return false;
         });
 
         filteredCategories.forEach(row => {
-          categoriaDropdown.append(`<option value="${row[categoriaNomeCol]}">${row[categoriaNomeCol]}</option>`);
+          const categoriaNome = row[categoriaNomeCol];
+          if (categoriaNome) { // Garante que o nome da categoria não é vazio
+            categoriaDropdown.append(`<option value="${categoriaNome}">${categoriaNome}</option>`);
+          }
         });
+        console.log(`filterCategoriesByType: Categorias filtradas e populadas. Total: ${filteredCategories.length} para tipo ${transactionType}.`);
       }
 
       // Event listener para mudança no tipo de transação (Entrada/Saída)
@@ -387,10 +506,12 @@
 
       // Carregar Histórico de Transações Recentes
       function loadTransactionHistory() {
+        console.log("loadTransactionHistory: Iniciando carregamento do histórico de transações.");
         google.script.run.withSuccessHandler(function(data) {
           let html = '';
-          if (data.length <= 1) {
-            html = '<tr><td colspan="7" class="text-center text-muted">Nenhuma transação registrada ainda.</td></tr>';
+          if (!data || data.length <= 1) {
+            html = '<tr><td colspan="8" class="text-center text-muted">Nenhuma transação registrada ainda.</td></tr>';
+            console.log("loadTransactionHistory: Nenhum dado de transação ou dados inválidos recebidos.", data);
           } else {
             const headers = data[0];
             const dataCol = headers.indexOf('Data');
@@ -399,29 +520,36 @@
             const descricaoCol = headers.indexOf('Descricao');
             const categoriaCol = headers.indexOf('Categoria');
             const contaCol = headers.indexOf('Conta');
+            const tipoPagamentoCol = headers.indexOf('Tipo de Pagamento'); 
             const pessoaCol = headers.indexOf('Pessoa');
 
             if ([dataCol, tipoCol, valorCol, descricaoCol, categoriaCol, contaCol, pessoaCol].some(idx => idx === -1)) {
-                console.error("Cabeçalhos da aba 'Transacoes' inválidos.");
-                $('#transactionHistory').html('<tr><td colspan="7" class="text-center text-danger">Erro: Cabeçalhos da aba Transações incorretos.</td></tr>');
+                console.error("loadTransactionHistory: Cabeçalhos da aba 'Transacoes' inválidos. Verifique a estrutura. Headers:", headers);
+                $('#transactionHistory').html('<tr><td colspan="8" class="text-center text-danger">Erro: Cabeçalhos da aba Transações incorretos.</td></tr>');
                 return;
+            }
+            // Aviso se a coluna de tipo de pagamento não for encontrada (apenas para depuração, não impede o funcionamento)
+            if (tipoPagamentoCol === -1) {
+                console.warn("loadTransactionHistory: Coluna 'Tipo de Pagamento' não encontrada. Certifique-se de executar 'addPaymentTypeColumn()'.");
             }
 
             const recentTransactions = data.slice(1).reverse().slice(0, 50); 
             recentTransactions.forEach(row => {
               const valor = parseFloat(row[valorCol] || 0);
-              const valorDisplay = row[tipoCol] === 'Saída' ? `- R$ ${valor.toFixed(2)}` : `+ R$ ${valor.toFixed(2)}`;
+              const valorFormatado = formatCurrency(valor); 
+              const valorDisplay = row[tipoCol] === 'Saída' ? `- ${valorFormatado}` : `+ ${valorFormatado}`;
               const valorClass = row[tipoCol] === 'Saída' ? 'text-danger' : 'text-success';
               const rawDate = row[dataCol];
               let formattedDate = '';
               if (rawDate) {
                   const dateObj = new Date(rawDate);
-                  if (!isNaN(dateObj)) { 
+                  if (!isNaN(dateObj.getTime())) { 
                       formattedDate = dateObj.toLocaleDateString('pt-BR');
                   } else {
-                      formattedDate = rawDate;
+                      formattedDate = rawDate; 
                   }
               }
+              const tipoPagamento = tipoPagamentoCol !== -1 && row[tipoPagamentoCol] ? row[tipoPagamentoCol] : 'N/A';
 
               html += `<tr>
                 <td>${formattedDate}</td>
@@ -430,11 +558,16 @@
                 <td>${row[descricaoCol]}</td>
                 <td>${row[categoriaCol]}</td>
                 <td>${row[contaCol]}</td>
+                <td>${tipoPagamento}</td>
                 <td>${row[pessoaCol]}</td>
               </tr>`;
             });
+            console.log(`loadTransactionHistory: Histórico de transações populado. Total de exibidos: ${recentTransactions.length}.`);
           }
           $('#transactionHistory').html(html);
+        }).withFailureHandler(function(error) {
+            console.error("loadTransactionHistory: Erro ao carregar histórico de transações:", error.message);
+            $('#transactionHistory').html('<tr><td colspan="8" class="text-center text-danger">Erro ao carregar histórico de transações: ' + error.message + '</td></tr>');
         }).getSheetData('Transacoes');
       }
 
@@ -442,35 +575,46 @@
       $('#transactionForm').on('submit', function(event) {
         event.preventDefault();
         const form = $(this)[0];
+
+        const valorTransacaoParsed = unmaskAndParseCurrency($('#valorTransacao').val());
+        $('#valorTransacao').val(valorTransacaoParsed); 
+
         if (!form.checkValidity()) {
           event.stopPropagation();
+          if (!isNaN(valorTransacaoParsed) && valorTransacaoParsed !== '') {
+              $('#valorTransacao').val(formatCurrency(parseFloat(valorTransacaoParsed))); 
+          }
         } else {
           const transactionData = {
             data: $('#dataTransacao').val(),
             tipo: $('#tipoTransacao').val(),
-            valor: parseFloat($('#valorTransacao').val()),
+            valor: parseFloat(valorTransacaoParsed), 
             descricao: $('#descricaoTransacao').val(),
             categoria: $('#categoriaTransacao').val(),
             conta: $('#contaTransacao').val(),
+            tipoPagamento: $('#tipoPagamento').val(),
             pessoa: $('#pessoaTransacao').val(),
             observacoes: $('#observacoesTransacao').val()
           };
 
+          console.log("saveTransaction: Enviando dados:", transactionData);
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
                 $('#transactionMessage').html('<div class="alert alert-success">Transação salva com sucesso!</div>');
                 form.reset();
                 form.classList.remove('was-validated');
+                $('#valorTransacao').mask('0.000.000.000.000,00', {reverse: true});
                 loadTransactionHistory();
-                filterCategoriesByType(''); // Limpa o dropdown de categoria após salvar
+                filterCategoriesByType('');
               } else {
                 $('#transactionMessage').html('<div class="alert alert-danger">Erro ao salvar transação. Verifique os dados e os logs do script.</div>');
+                console.error("saveTransaction: Erro ao salvar transação (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#transactionMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao salvar transação:", error);
+                console.error("saveTransaction: Erro inesperado do backend:", error);
             })
             .saveTransaction(transactionData);
         }
@@ -481,43 +625,45 @@
       $('#transferForm').on('submit', function(event) {
         event.preventDefault();
         const form = $(this)[0];
+
+        const transferValueParsed = unmaskAndParseCurrency($('#transferValue').val());
+        $('#transferValue').val(transferValueParsed); 
+
         if (!form.checkValidity()) {
           event.stopPropagation();
+          if (!isNaN(transferValueParsed) && transferValueParsed !== '') {
+              $('#transferValue').val(formatCurrency(parseFloat(transferValueParsed))); 
+          }
         } else {
           const transferData = {
             data: $('#transferDate').val(),
             fromAccount: $('#fromAccount').val(),
             toAccount: $('#toAccount').val(),
-            value: parseFloat($('#transferValue').val()),
+            value: parseFloat(transferValueParsed), 
             person: $('#transferPerson').val(),
             observations: $('#transferObservations').val()
           };
 
-          // Validação adicional no frontend para contas de transferência
-          if (transferData.fromAccount === transferData.toAccount) {
-              $('#transferMessage').html('<div class="alert alert-warning">A conta de origem e a conta de destino não podem ser as mesmas.</div>');
-              event.stopPropagation();
-              form.classList.add('was-validated');
-              return;
-          }
-
+          console.log("recordTransfer: Enviando dados:", transferData);
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
                 $('#transferMessage').html('<div class="alert alert-success">Transferência registrada com sucesso!</div>');
                 form.reset();
                 form.classList.remove('was-validated');
-                loadTransactionHistory(); // Recarrega o histórico para mostrar a transferência
-                loadAllDropdownData(); // Recarrega saldos das contas
+                $('#transferValue').mask('0.000.000.000.000,00', {reverse: true});
+                loadTransactionHistory(); 
+                loadAllDropdownData(); 
               } else {
                 $('#transferMessage').html('<div class="alert alert-danger">Erro ao registrar transferência. Verifique os dados e os logs do script.</div>');
+                console.error("recordTransfer: Erro ao registrar transferência (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#transferMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao registrar transferência:", error);
+                console.error("recordTransfer: Erro inesperado do backend:", error);
             })
-            .recordTransfer(transferData); // Chamada para a nova função no backend
+            .recordTransfer(transferData); 
         }
         form.classList.add('was-validated');
       });

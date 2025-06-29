@@ -80,9 +80,21 @@ function include(filename) {
 function getSheetData(sheetName) {
   try {
     const sheet = getSheet(sheetName);
-    return sheet.getDataRange().getValues();
+    const range = sheet.getDataRange();
+    const data = range.getValues();
+    
+    if (data.length === 0) {
+      log(`getSheetData: Aba '${sheetName}' está vazia.`);
+      return [];
+    }
+
+    const headers = data[0];
+    log(`getSheetData: Aba '${sheetName}' Headers: [${headers.join(', ')}]`);
+    log(`getSheetData: Aba '${sheetName}' Total de linhas (incluindo header): ${data.length}`);
+    
+    return data;
   } catch (e) {
-    log(`Erro ao obter dados da aba '${sheetName}': ${e.message}`);
+    log(`getSheetData: Erro ao obter dados da aba '${sheetName}': ${e.message}`);
     return [];
   }
 }
@@ -96,11 +108,14 @@ function getSheetData(sheetName) {
  */
 function getSheetDataBatch(sheetsToFetch) {
   const result = {};
+  log("getSheetDataBatch: Iniciando carregamento de dados em lote.");
   for (const key in sheetsToFetch) {
     if (Object.prototype.hasOwnProperty.call(sheetsToFetch, key)) {
       result[key] = getSheetData(sheetsToFetch[key]);
+      log(`getSheetDataBatch: Dados para '${key}' (${sheetsToFetch[key]}) processados. Retornou ${result[key].length} linhas.`);
     }
   }
+  log("getSheetDataBatch: Carregamento de dados em lote concluído.");
   return result;
 }
 
@@ -129,14 +144,14 @@ function updateAccountBalance(accountName, amount) {
         let currentBalance = parseFloat(data[i][saldoAtualColIndex] || 0);
         const newBalance = currentBalance + amount;
         contasSheet.getRange(i + 1, saldoAtualColIndex + 1).setValue(newBalance);
-        log(`Conta '${accountName}' atualizada para R$ ${newBalance.toFixed(2)}.`);
+        log(`updateAccountBalance: Conta '${accountName}' atualizada para R$ ${newBalance.toFixed(2)}.`);
         return true;
       }
     }
-    log(`Erro: Conta '${accountName}' não encontrada para atualização de saldo.`);
+    log(`updateAccountBalance: Erro: Conta '${accountName}' não encontrada para atualização de saldo.`);
     return false;
   } catch (e) {
-    log(`Erro ao atualizar saldo da conta: ${e.message}`);
+    log(`updateAccountBalance: Erro ao atualizar saldo da conta: ${e.message}`);
     return false;
   }
 }
@@ -151,39 +166,48 @@ function updateAccountBalance(accountName, amount) {
 function saveTransaction(transaction) {
   try {
     const transacoesSheet = getSheet(SHEETS.TRANSACOES);
+    const headers = transacoesSheet.getDataRange().getValues()[0]; // Obter cabeçalhos atualizados
 
-    if (!transaction.data || !transaction.tipo || !transaction.valor || !transaction.conta || !transaction.descricao || !transaction.categoria || !transaction.pessoa) {
-      throw new Error('Dados da transação incompletos. Verifique Data, Tipo, Valor, Descrição, Categoria, Conta e Pessoa.');
+    if (!transaction.data || !transaction.tipo || !transaction.valor || !transaction.conta || !transaction.descricao || !transaction.categoria || !transaction.pessoa || !transaction.tipoPagamento) {
+      throw new Error('Dados da transação incompletos. Verifique Data, Tipo, Valor, Descrição, Categoria, Conta, Tipo de Pagamento e Pessoa.');
     }
     const valorNumerico = parseFloat(transaction.valor);
     if (isNaN(valorNumerico) || valorNumerico <= 0) {
       throw new Error('Valor da transação inválido. Deve ser um número positivo.');
     }
 
-    // Gerar um ID único baseado na data e um contador ou row number
-    // Considerar usar um UUID para IDs mais robustos em projetos maiores
     const nextId = `TR${transacoesSheet.getLastRow() + 1}`; 
     const valorParaContas = transaction.tipo === 'Saída' ? -valorNumerico : valorNumerico;
 
-    transacoesSheet.appendRow([
-      nextId,
-      transaction.data,
-      transaction.tipo,
-      valorNumerico,
-      transaction.descricao,
-      transaction.categoria,
-      transaction.conta,
-      transaction.pessoa,
-      transaction.observacoes || ''
-    ]);
-    log(`Transação '${transaction.descricao}' (${transaction.tipo}) salva.`);
+    // Mapear os dados do objeto transaction para a ordem das colunas na planilha
+    const rowData = new Array(headers.length).fill(''); // Cria uma linha vazia com o tamanho dos cabeçalhos
+    
+    rowData[headers.indexOf('ID')] = nextId;
+    rowData[headers.indexOf('Data')] = transaction.data;
+    rowData[headers.indexOf('Tipo')] = transaction.tipo;
+    rowData[headers.indexOf('Valor (R$)')] = valorNumerico;
+    rowData[headers.indexOf('Descricao')] = transaction.descricao;
+    rowData[headers.indexOf('Categoria')] = transaction.categoria;
+    rowData[headers.indexOf('Conta')] = transaction.conta;
+    rowData[headers.indexOf('Pessoa')] = transaction.pessoa;
+    rowData[headers.indexOf('Observacoes')] = transaction.observacoes || '';
+    
+    const tipoPagamentoColIndex = headers.indexOf('Tipo de Pagamento');
+    if (tipoPagamentoColIndex !== -1) {
+        rowData[tipoPagamentoColIndex] = transaction.tipoPagamento;
+    } else {
+        log("saveTransaction: Aviso: Coluna 'Tipo de Pagamento' não encontrada. Verifique se executou a função addPaymentTypeColumn().");
+    }
+
+    transacoesSheet.appendRow(rowData);
+    log(`saveTransaction: Transação '${transaction.descricao}' (${transaction.tipo}) salva.`);
 
     updateAccountBalance(transaction.conta, valorParaContas);
-    log(`Saldo da conta '${transaction.conta}' atualizado.`);
+    log(`saveTransaction: Saldo da conta '${transaction.conta}' atualizado.`);
 
     return true;
   } catch (e) {
-    log(`Erro ao salvar transação: ${e.message}`);
+    log(`saveTransaction: Erro ao salvar transação: ${e.message}`);
     return false;
   }
 }
@@ -208,6 +232,7 @@ function updateTransaction(transactionData) {
     const contaColIndex = headers.indexOf('Conta');
     const pessoaColIndex = headers.indexOf('Pessoa');
     const observacoesColIndex = headers.indexOf('Observacoes');
+    const tipoPagamentoColIndex = headers.indexOf('Tipo de Pagamento'); 
 
     if (idColIndex === -1 || dataColIndex === -1 || tipoColIndex === -1 || valorColIndex === -1 ||
         descricaoColIndex === -1 || categoriaColIndex === -1 || contaColIndex === -1 ||
@@ -231,8 +256,8 @@ function updateTransaction(transactionData) {
           updateAccountBalance(oldConta, valorParaEstornar);
         }
 
-        const rowToUpdate = new Array(headers.length);
-        rowToUpdate[idColIndex] = transactionData.id;
+        const rowToUpdate = data[i]; 
+
         rowToUpdate[dataColIndex] = transactionData.data;
         rowToUpdate[tipoColIndex] = newTipo;
         rowToUpdate[valorColIndex] = newValor;
@@ -241,6 +266,10 @@ function updateTransaction(transactionData) {
         rowToUpdate[contaColIndex] = newConta;
         rowToUpdate[pessoaColIndex] = transactionData.pessoa;
         rowToUpdate[observacoesColIndex] = transactionData.observacoes || '';
+        
+        if (tipoPagamentoColIndex !== -1) {
+            rowToUpdate[tipoPagamentoColIndex] = transactionData.tipoPagamento || '';
+        }
 
         sheet.getRange(i + 1, 1, 1, headers.length).setValues([rowToUpdate]);
 
@@ -248,14 +277,14 @@ function updateTransaction(transactionData) {
         const valorParaAplicar = newTipo === 'Saída' ? -newValor : newValor;
         updateAccountBalance(newConta, valorParaAplicar);
 
-        log(`Transação '${transactionData.id}' atualizada.`);
+        log(`updateTransaction: Transação '${transactionData.id}' atualizada.`);
         return true;
       }
     }
-    log(`Erro: Transação com ID '${transactionData.id}' não encontrada para atualização.`);
+    log(`updateTransaction: Erro: Transação com ID '${transactionData.id}' não encontrada para atualização.`);
     return false;
   } catch (e) {
-    log(`Erro ao atualizar transação: ${e.message}`);
+    log(`updateTransaction: Erro ao atualizar transação: ${e.message}`);
     return false;
   }
 }
@@ -291,14 +320,14 @@ function deleteTransaction(transactionId) {
         updateAccountBalance(conta, valorParaEstornar);
 
         sheet.deleteRow(i + 1);
-        log(`Transação '${transactionId}' excluída.`);
+        log(`deleteTransaction: Transação '${transactionId}' excluída.`);
         return true;
       }
     }
-    log(`Erro: Transação com ID '${transactionId}' não encontrada para exclusão.`);
+    log(`deleteTransaction: Erro: Transação com ID '${transactionId}' não encontrada para exclusão.`);
     return false;
   } catch (e) {
-    log(`Erro ao excluir transação: ${e.message}`);
+    log(`deleteTransaction: Erro ao excluir transação: ${e.message}`);
     return false;
   }
 }
@@ -326,7 +355,7 @@ function recordTransfer(transferData) {
     // 1. Debitar da conta de origem
     const debitSuccess = updateAccountBalance(transferData.fromAccount, -valueNumeric);
     if (!debitSuccess) {
-        throw new Error(`Falha ao debitar da conta de origem: ${transferData.fromAccount}.`);
+        throw new Error(`recordTransfer: Falha ao debitar da conta de origem: ${transferData.fromAccount}.`);
     }
 
     // 2. Creditar na conta de destino
@@ -334,7 +363,7 @@ function recordTransfer(transferData) {
     if (!creditSuccess) {
         // Se o crédito falhar, tentar reverter o débito (opcional, mas boa prática)
         updateAccountBalance(transferData.fromAccount, valueNumeric); 
-        throw new Error(`Falha ao creditar na conta de destino: ${transferData.toAccount}.`);
+        throw new Error(`recordTransfer: Falha ao creditar na conta de destino: ${transferData.toAccount}.`);
     }
 
     // 3. Registrar transação de SAÍDA na aba 'Transacoes'
@@ -343,8 +372,9 @@ function recordTransfer(transferData) {
       tipo: 'Saída',
       valor: valueNumeric,
       descricao: `Transferência para: ${transferData.toAccount}`,
-      categoria: 'Transferência', // Categoria específica para transferências
+      categoria: 'Transferência', 
       conta: transferData.fromAccount,
+      tipoPagamento: 'Transferência entre Contas', 
       pessoa: transferData.person,
       observacoes: transferData.observations || `Transferência de ${transferData.fromAccount} para ${transferData.toAccount}`
     });
@@ -355,16 +385,17 @@ function recordTransfer(transferData) {
       tipo: 'Entrada',
       valor: valueNumeric,
       descricao: `Transferência de: ${transferData.fromAccount}`,
-      categoria: 'Transferência', // Categoria específica para transferências
+      categoria: 'Transferência', 
       conta: transferData.toAccount,
       pessoa: transferData.person,
+      tipoPagamento: 'Transferência entre Contas', 
       observacoes: transferData.observations || `Transferência de ${transferData.fromAccount} para ${transferData.toAccount}`
     });
 
-    log(`Transferência de R$ ${valueNumeric.toFixed(2)} de '${transferData.fromAccount}' para '${transferData.toAccount}' registrada.`);
+    log(`recordTransfer: Transferência de R$ ${valueNumeric.toFixed(2)} de '${transferData.fromAccount}' para '${transferData.toAccount}' registrada.`);
     return true;
   } catch (e) {
-    log(`Erro ao registrar transferência: ${e.message}`);
+    log(`recordTransfer: Erro ao registrar transferência: ${e.message}`);
     return false;
   }
 }
@@ -407,17 +438,17 @@ function saveBudget(budgetData) {
         
         sheet.getRange(i + 1, valorOrcadoColIndex + 1).setValue(parseFloat(budgetData.valorOrcado));
         found = true;
-        log(`Orçamento para '${budgetData.produtoServico}' em '${budgetData.categoria}' (${budgetData.tipo}, ${budgetData.anoMes}) atualizado.`);
+        log(`saveBudget: Orçamento para '${budgetData.produtoServico}' em '${budgetData.categoria}' (${budgetData.tipo}, ${budgetData.anoMes}) atualizado.`);
         break;
       }
     }
     if (!found) {
       sheet.appendRow([budgetData.anoMes, budgetData.categoria, budgetData.produtoServico, budgetData.tipo, parseFloat(budgetData.valorOrcado)]);
-      log(`Novo orçamento para '${budgetData.produtoServico}' em '${budgetData.categoria}' (${budgetData.tipo}, ${budgetData.anoMes}) salvo.`);
+      log(`saveBudget: Novo orçamento para '${budgetData.produtoServico}' em '${budgetData.categoria}' (${budgetData.tipo}, ${budgetData.anoMes}) salvo.`);
     }
     return true;
   } catch (e) {
-    log(`Erro ao salvar orçamento: ${e.message}`);
+    log(`saveBudget: Erro ao salvar orçamento: ${e.message}`);
     return false;
   }
 }
@@ -504,7 +535,7 @@ function getBudgetAnalysis(anoMes) {
       });
     }
     for (const categoria in gastosPorCategoria) {
-        if (!orcamentosPorCategoria.despesas.hasOwnProperty(categoria) && gastosPorCategoria.hasOwnProperty(categoria)) { // Certifica que é uma despesa não orçada
+        if (!orcamentosPorCategoria.despesas.hasOwnProperty(categoria) && gastosPorCategoria.hasOwnProperty(categoria)) { 
             despesasResults.push({
                 categoria: categoria,
                 orcado: 0,
@@ -522,7 +553,7 @@ function getBudgetAnalysis(anoMes) {
       });
     }
     for (const categoria in receitaRealPorCategoria) {
-        if (!orcamentosPorCategoria.receitas.hasOwnProperty(categoria) && receitaRealPorCategoria.hasOwnProperty(categoria)) { // Certifica que é uma receita não orçada
+        if (!orcamentosPorCategoria.receitas.hasOwnProperty(categoria) && receitaRealPorCategoria.hasOwnProperty(categoria)) { 
             receitasResults.push({
                 categoria: categoria,
                 estimado: 0,
@@ -533,7 +564,7 @@ function getBudgetAnalysis(anoMes) {
 
     return { receitas: receitasResults, despesas: despesasResults };
   } catch (e) {
-    log(`Erro ao obter análise de orçamento: ${e.message}`);
+    log(`getBudgetAnalysis: Erro ao obter análise de orçamento: ${e.message}`);
     return { receitas: [], despesas: [] };
   }
 }
@@ -588,7 +619,7 @@ function saveGoal(goalData) {
           rowToUpdate[colIndices.observacoes] = goalData.observacoes || '';
 
           sheet.getRange(i + 1, 1, 1, headers.length).setValues([rowToUpdate]);
-          log(`Meta '${goalData.nome}' (ID: ${goalData.id}) atualizada.`);
+          log(`saveGoal: Meta '${goalData.nome}' (ID: ${goalData.id}) atualizada.`);
           return true;
         }
       }
@@ -607,10 +638,11 @@ function saveGoal(goalData) {
       goalData.prioridade || '',
       goalData.observacoes || ''
     ]);
-    log(`Nova meta '${goalData.nome}' (ID: ${nextId}) salva.`);
+    log(`saveGoal: Nova meta '${goalData.nome}' (ID: ${nextId}) salva.`);
     return true;
-  } catch (e) {
-    log(`Erro ao salvar meta: ${e.message}`);
+  }
+   catch (e) {
+    log(`saveGoal: Erro ao salvar meta: ${e.message}`);
     return false;
   }
 }
@@ -651,16 +683,16 @@ function contributeToGoal(goalId, amount) {
         if (newContributed >= valorAlvo && allData[i][statusColIndex] !== 'Alcancada') {
           sheet.getRange(i + 1, statusColIndex + 1).setValue('Alcancada');
           sendGoalReachedEmail(allData[i][nomeMetaColIndex]);
-          log(`Meta '${allData[i][nomeMetaColIndex]}' (ID: ${goalId}) alcançada.`);
+          log(`contributeToGoal: Meta '${allData[i][nomeMetaColIndex]}' (ID: ${goalId}) alcançada.`);
         }
-        log(`Contribuição de R$ ${amount.toFixed(2)} adicionada à meta '${allData[i][nomeMetaColIndex]}'.`);
+        log(`contributeToGoal: Contribuição de R$ ${amount.toFixed(2)} adicionada à meta '${allData[i][nomeMetaColIndex]}'.`);
         return true;
       }
     }
-    log(`Erro: Meta com ID '${goalId}' não encontrada para adicionar contribuição.`);
+    log(`contributeToGoal: Erro: Meta com ID '${goalId}' não encontrada para adicionar contribuição.`);
     return false;
   } catch (e) {
-    log(`Erro ao contribuir para meta: ${e.message}`);
+    log(`contributeToGoal: Erro ao contribuir para meta: ${e.message}`);
     return false;
   }
 }
@@ -692,14 +724,14 @@ function deleteGoal(goalId) {
     for (let i = 1; i < data.length; i++) {
       if (data[i][idColIndex] === goalId) {
         sheet.deleteRow(i + 1);
-        log(`Meta '${goalId}' excluída.`);
+        log(`deleteGoal: Meta '${goalId}' excluída.`);
         return true;
       }
     }
-    log(`Erro: Meta com ID '${goalId}' não encontrada para exclusão.`);
+    log(`deleteGoal: Erro: Meta com ID '${goalId}' não encontrada para exclusão.`);
     return false;
   } catch (e) {
-    log(`Erro ao excluir meta: ${e.message}`);
+    log(`deleteGoal: Erro ao excluir meta: ${e.message}`);
     return false;
   }
 }
@@ -727,22 +759,35 @@ function saveDebt(debtData) {
       dataInicio: headers.indexOf('Data Inicio'),
       dataVencimento: headers.indexOf('Data Vencimento'),
       status: headers.indexOf('Status'),
-      observacoes: headers.indexOf('Observacoes')
+      observacoes: headers.indexOf('Observacoes'),
+      quantidadeParcelas: headers.indexOf('Quantidade de Parcelas'), 
+      periodicidade: headers.indexOf('Periodicidade') 
     };
 
-    if (Object.values(colIndices).some(idx => idx === -1)) {
-        throw new Error('Colunas da aba Dividas não encontradas. Verifique os cabeçalhos.');
+    if (Object.values(colIndices).some(idx => idx === -1 && idx !== colIndices.quantidadeParcelas && idx !== colIndices.periodicidade)) {
+        throw new Error('Colunas obrigatórias da aba Dividas não encontradas. Verifique os cabeçalhos.');
     }
+    if (colIndices.quantidadeParcelas === -1 || colIndices.periodicidade === -1) {
+        log("saveDebt: Aviso: Colunas 'Quantidade de Parcelas' ou 'Periodicidade' não encontradas. Verifique se executou a função addInstallmentColumns().");
+    }
+
 
     if (!debtData.nomeDivida || !debtData.credor || isNaN(parseFloat(debtData.valorTotal)) || parseFloat(debtData.valorTotal) <= 0 || !debtData.dataInicio || !debtData.dataVencimento || !debtData.status) {
       throw new Error('Dados da dívida incompletos ou inválidos.');
     }
+    if (isNaN(parseInt(debtData.quantidadeParcelas)) || parseInt(debtData.quantidadeParcelas) < 1) {
+      throw new Error('Quantidade de parcelas inválida. Deve ser um número inteiro maior ou igual a 1.');
+    }
+    if (!debtData.periodicidade) {
+      throw new Error('Periodicidade das parcelas é obrigatória.');
+    }
+
 
     if (debtData.id && debtData.id.startsWith('DIV')) {
       for (let i = 1; i < allData.length; i++) {
         if (allData[i][colIndices.id] === debtData.id) {
-          const rowToUpdate = new Array(headers.length);
-          rowToUpdate[colIndices.id] = debtData.id;
+          const rowToUpdate = allData[i]; 
+
           rowToUpdate[colIndices.nomeDivida] = debtData.nomeDivida;
           rowToUpdate[colIndices.credor] = debtData.credor;
           rowToUpdate[colIndices.valorTotal] = parseFloat(debtData.valorTotal);
@@ -751,30 +796,47 @@ function saveDebt(debtData) {
           rowToUpdate[colIndices.dataVencimento] = debtData.dataVencimento;
           rowToUpdate[colIndices.status] = debtData.status;
           rowToUpdate[colIndices.observacoes] = debtData.observacoes || '';
+          
+          if (colIndices.quantidadeParcelas !== -1) {
+            rowToUpdate[colIndices.quantidadeParcelas] = parseInt(debtData.quantidadeParcelas);
+          }
+          if (colIndices.periodicidade !== -1) {
+            rowToUpdate[colIndices.periodicidade] = debtData.periodicidade;
+          }
 
           sheet.getRange(i + 1, 1, 1, headers.length).setValues([rowToUpdate]);
-          log(`Dívida '${debtData.nomeDivida}' (ID: ${debtData.id}) atualizada.`);
+          log(`saveDebt: Dívida '${debtData.nomeDivida}' (ID: ${debtData.id}) atualizada.`);
           return true;
         }
       }
     }
 
     const nextId = `DIV${sheet.getLastRow() + 1}`;
-    sheet.appendRow([
-      nextId,
-      debtData.nomeDivida,
-      debtData.credor,
-      parseFloat(debtData.valorTotal),
-      parseFloat(debtData.valorPago || 0),
-      debtData.dataInicio,
-      debtData.dataVencimento,
-      debtData.status,
-      debtData.observacoes || ''
-    ]);
-    log(`Nova dívida '${debtData.nomeDivida}' (ID: ${nextId}) salva.`);
+    const newRow = new Array(headers.length).fill(''); 
+
+    newRow[colIndices.id] = nextId;
+    newRow[colIndices.nomeDivida] = debtData.nomeDivida;
+    newRow[colIndices.credor] = debtData.credor;
+    newRow[colIndices.valorTotal] = parseFloat(debtData.valorTotal);
+    newRow[colIndices.valorPago] = parseFloat(debtData.valorPago || 0);
+    newRow[colIndices.dataInicio] = debtData.dataInicio;
+    newRow[colIndices.dataVencimento] = debtData.dataVencimento;
+    newRow[colIndices.status] = debtData.status;
+    newRow[colIndices.observacoes] = debtData.observacoes || '';
+    
+    if (colIndices.quantidadeParcelas !== -1) {
+        newRow[colIndices.quantidadeParcelas] = parseInt(debtData.quantidadeParcelas);
+    }
+    if (colIndices.periodicidade !== -1) {
+        newRow[colIndices.periodicidade] = debtData.periodicidade;
+    }
+
+
+    sheet.appendRow(newRow);
+    log(`saveDebt: Nova dívida '${debtData.nomeDivida}' (ID: ${nextId}) salva.`);
     return true;
   } catch (e) {
-    log(`Erro ao salvar dívida: ${e.message}`);
+    log(`saveDebt: Erro ao salvar dívida: ${e.message}`);
     return false;
   }
 }
@@ -816,14 +878,14 @@ function recordDebtPayment(debtId, paymentAmount, paymentDate, paymentAccount, p
         const newPaid = currentPaid + paymentAmount;
         
         sheet.getRange(i + 1, valorPagoColIndex + 1).setValue(newPaid);
-        log(`Pagamento de R$ ${paymentAmount.toFixed(2)} registrado para dívida '${allData[i][nomeDividaColIndex]}'.`);
+        log(`recordDebtPayment: Pagamento de R$ ${paymentAmount.toFixed(2)} registrado para dívida '${allData[i][nomeDividaColIndex]}'.`);
 
         if (newPaid >= totalDebt) {
           sheet.getRange(i + 1, statusColIndex + 1).setValue('Paga');
-          log(`Dívida '${allData[i][nomeDividaColIndex]}' quitada!`);
+          log(`recordDebtPayment: Dívida '${allData[i][nomeDividaColIndex]}' quitada!`);
         } else if (allData[i][statusColIndex] === 'Aguardando Início' && newPaid > 0) {
           sheet.getRange(i + 1, statusColIndex + 1).setValue('Ativa');
-          log(`Dívida '${allData[i][nomeDividaColIndex]}' ativada pelo pagamento.`);
+          log(`recordDebtPayment: Dívida '${allData[i][nomeDividaColIndex]}' ativada pelo pagamento.`);
         }
 
         saveTransaction({
@@ -834,16 +896,17 @@ function recordDebtPayment(debtId, paymentAmount, paymentDate, paymentAccount, p
           categoria: 'Dívidas',
           conta: paymentAccount,
           pessoa: paymentPerson,
+          tipoPagamento: 'Débito Automático', 
           observacoes: `Pagamento para ${allData[i][nomeDividaColIndex]}`
         });
-        log(`Transação de saída para pagamento de dívida registrada.`);
+        log(`recordDebtPayment: Transação de saída para pagamento de dívida registrada.`);
         return true;
       }
     }
-    log(`Erro: Dívida com ID '${debtId}' não encontrada para registro de pagamento.`);
+    log(`recordDebtPayment: Erro: Dívida com ID '${debtId}' não encontrada para registro de pagamento.`);
     return false;
   } catch (e) {
-    log(`Erro ao registrar pagamento de dívida: ${e.message}`);
+    log(`recordDebtPayment: Erro ao registrar pagamento de dívida: ${e.message}`);
     return false;
   }
 }
@@ -865,14 +928,14 @@ function deleteDebt(debtId) {
     for (let i = 1; i < data.length; i++) {
       if (data[i][idColIndex] === debtId) {
         sheet.deleteRow(i + 1);
-        log(`Dívida '${debtId}' excluída.`);
+        log(`deleteDebt: Dívida '${debtId}' excluída.`);
         return true;
       }
     }
-    log(`Erro: Dívida com ID '${debtId}' não encontrada para exclusão.`);
+    log(`deleteDebt: Erro: Dívida com ID '${debtId}' não encontrada para exclusão.`);
     return false;
   } catch (e) {
-    log(`Erro ao excluir dívida: ${e.message}`);
+    log(`deleteDebt: Erro ao excluir dívida: ${e.message}`);
     return false;
   }
 }
@@ -900,22 +963,30 @@ function saveInvestment(investData) {
       tipo: headers.indexOf('Tipo'),
       rentabilidade: headers.indexOf('Rentabilidade %'),
       dataAporteInicial: headers.indexOf('Data Aporte Inicial'),
-      observacoes: headers.indexOf('Observacoes')
+      observacoes: headers.indexOf('Observacoes'),
+      tipoAporte: headers.indexOf('Tipo de Aporte'), 
+      tipoMovimentacao: headers.indexOf('Tipo de Movimentação') 
     };
 
-    if (Object.values(colIndices).some(idx => idx === -1)) {
-        throw new Error('Colunas da aba Investimentos não encontradas. Verifique os cabeçalhos.');
+    if (Object.values(colIndices).some(idx => idx === -1 && idx !== colIndices.tipoAporte && idx !== colIndices.tipoMovimentacao)) {
+        throw new Error('Colunas obrigatórias da aba Investimentos não encontradas. Verifique os cabeçalhos.');
+    }
+    if (colIndices.tipoAporte === -1 || colIndices.tipoMovimentacao === -1) {
+        log("saveInvestment: Aviso: Colunas 'Tipo de Aporte' ou 'Tipo de Movimentação' não encontradas. Verifique se executou a função addInvestmentPlanColumns().");
     }
 
     if (!investData.nomeInvestimento || !investData.instituicao || isNaN(parseFloat(investData.valorInicial)) || parseFloat(investData.valorInicial) <= 0 || !investData.tipo || !investData.dataAporteInicial) {
       throw new Error('Dados do investimento incompletos ou inválidos. Nome, Instituição, Valor Inicial, Tipo e Data de Aporte são obrigatórios.');
     }
+    if (!investData.tipoAporte || !investData.tipoMovimentacao) {
+        throw new Error('Tipo de Aporte e Tipo de Movimentação são obrigatórios.');
+    }
 
     if (investData.id && investData.id.startsWith('INV')) {
       for (let i = 1; i < allData.length; i++) {
         if (allData[i][colIndices.id] === investData.id) {
-          const rowToUpdate = new Array(headers.length);
-          rowToUpdate[colIndices.id] = investData.id;
+          const rowToUpdate = allData[i]; 
+
           rowToUpdate[colIndices.nomeInvestimento] = investData.nomeInvestimento;
           rowToUpdate[colIndices.instituicao] = investData.instituicao;
           rowToUpdate[colIndices.valorInicial] = parseFloat(investData.valorInicial);
@@ -925,35 +996,51 @@ function saveInvestment(investData) {
           rowToUpdate[colIndices.dataAporteInicial] = investData.dataAporteInicial;
           rowToUpdate[colIndices.observacoes] = investData.observacoes || '';
 
+          if (colIndices.tipoAporte !== -1) {
+            rowToUpdate[colIndices.tipoAporte] = investData.tipoAporte;
+          }
+          if (colIndices.tipoMovimentacao !== -1) {
+            rowToUpdate[colIndices.tipoMovimentacao] = investData.tipoMovimentacao;
+          }
+
           sheet.getRange(i + 1, 1, 1, headers.length).setValues([rowToUpdate]);
-          log(`Investimento '${investData.nomeInvestimento}' (ID: ${investData.id}) atualizado.`);
+          log(`saveInvestment: Investimento '${investData.nomeInvestimento}' (ID: ${investData.id}) atualizado.`);
           return true;
         }
       }
     }
 
     const nextId = `INV${sheet.getLastRow() + 1}`;
-    sheet.appendRow([
-      nextId,
-      investData.nomeInvestimento,
-      investData.instituicao,
-      parseFloat(investData.valorInicial),
-      parseFloat(investData.valorInicial),
-      investData.tipo,
-      0, // Rentabilidade inicial 0%
-      investData.dataAporteInicial,
-      investData.observacoes || ''
-    ]);
-    log(`Novo investimento '${investData.nomeInvestimento}' (ID: ${nextId}) salvo.`);
+    const newRow = new Array(headers.length).fill(''); 
+    
+    newRow[colIndices.id] = nextId;
+    newRow[colIndices.nomeInvestimento] = investData.nomeInvestimento;
+    newRow[colIndices.instituicao] = investData.instituicao;
+    newRow[colIndices.valorInicial] = parseFloat(investData.valorInicial);
+    newRow[colIndices.valorAtual] = parseFloat(investData.valorInicial); 
+    newRow[colIndices.tipo] = investData.tipo;
+    newRow[colIndices.rentabilidade] = 0; 
+    newRow[colIndices.dataAporteInicial] = investData.dataAporteInicial;
+    newRow[colIndices.observacoes] = investData.observacoes || '';
+    
+    if (colIndices.tipoAporte !== -1) {
+        newRow[colIndices.tipoAporte] = investData.tipoAporte;
+    }
+    if (colIndices.tipoMovimentacao !== -1) {
+        newRow[colIndices.tipoMovimentacao] = investData.tipoMovimentacao;
+    }
+
+    sheet.appendRow(newRow);
+    log(`saveInvestment: Novo investimento '${investData.nomeInvestimento}' (ID: ${nextId}) salvo.`);
     return true;
   } catch (e) {
-    log(`Erro ao salvar investimento: ${e.message}`);
+    log(`saveInvestment: Erro ao salvar investimento: ${e.message}`);
     return false;
   }
 }
 
 /**
- * Atualiza o valor atual e/ou rentabilidade de um investimento.
+ * Atualiza o valor atual e/o u rentabilidade de um investimento.
  * @param {string} investId ID do investimento.
  * @param {number} newCurrentValue Novo valor atual.
  * @param {number} newRentability Nova rentabilidade em percentual (opcional).
@@ -981,24 +1068,24 @@ function updateInvestmentValue(investId, newCurrentValue, newRentability) {
     for (let i = 1; i < allData.length; i++) {
       if (allData[i][idColIndex] === investId) {
         sheet.getRange(i + 1, valorAtualColIndex + 1).setValue(parseFloat(newCurrentValue));
-        log(`Valor atual de '${allData[i][nomeInvestimentoColIndex]}' atualizado para R$ ${newCurrentValue.toFixed(2)}.`);
+        log(`updateInvestmentValue: Valor atual de '${allData[i][nomeInvestimentoColIndex]}' atualizado para R$ ${newCurrentValue.toFixed(2)}.`);
 
         const initialValue = parseFloat(allData[i][valorInicialColIndex] || 0);
         if (initialValue > 0) {
             const calculatedRentability = ((newCurrentValue - initialValue) / initialValue) * 100;
             sheet.getRange(i + 1, rentabilidadeColIndex + 1).setValue(calculatedRentability);
-            log(`Rentabilidade de '${allData[i][nomeInvestimentoColIndex]}' recalculada para ${calculatedRentability.toFixed(2)}%.`);
+            log(`updateInvestmentValue: Rentabilidade de '${allData[i][nomeInvestimentoColIndex]}' recalculada para ${calculatedRentability.toFixed(2)}%.`);
         } else if (newRentability !== undefined && !isNaN(newRentability)) {
              sheet.getRange(i + 1, rentabilidadeColIndex + 1).setValue(parseFloat(newRentability));
-             log(`Rentabilidade de '${allData[i][nomeInvestimentoColIndex]}' definida para ${newRentability.toFixed(2)}%.`);
+             log(`updateInvestmentValue: Rentabilidade de '${allData[i][nomeInvestimentoColIndex]}' definida para ${newRentability.toFixed(2)}%.`);
         }
         return true;
       }
     }
-    log(`Erro: Investimento com ID '${investId}' não encontrado para atualização de valor.`);
+    log(`updateInvestmentValue: Erro: Investimento com ID '${investId}' não encontrado para atualização de valor.`);
     return false;
   } catch (e) {
-    log(`Erro ao atualizar valor do investimento: ${e.message}`);
+    log(`updateInvestmentValue: Erro ao atualizar valor do investimento: ${e.message}`);
     return false;
   }
 }
@@ -1042,7 +1129,7 @@ function recordInvestmentMovement(aporteData) {
     }
 
     if (currentInvestmentRow === -1) {
-      throw new Error(`Investimento com ID '${aporteData.investId}' não encontrado.`);
+      throw new Error(`recordInvestmentMovement: Investimento com ID '${aporteData.investId}' não encontrado.`);
     }
 
     if (isNaN(parseFloat(aporteData.valor)) || parseFloat(aporteData.valor) <= 0) {
@@ -1060,7 +1147,7 @@ function recordInvestmentMovement(aporteData) {
       aporteData.pessoa,
       aporteData.observacoes || ''
     ]);
-    log(`Aporte/Resgate '${aporteData.tipoTransacao}' de R$ ${parseFloat(aporteData.valor).toFixed(2)} para investimento '${currentInvestmentName}' salvo.`);
+    log(`recordInvestmentMovement: Aporte/Resgate '${aporteData.tipoTransacao}' de R$ ${parseFloat(aporteData.valor).toFixed(2)} para investimento '${currentInvestmentName}' salvo.`);
 
     // Atualiza o valor atual do investimento
     let newInvestmentValue = currentInvestmentValue;
@@ -1071,27 +1158,26 @@ function recordInvestmentMovement(aporteData) {
     }
     investimentosSheet.getRange(currentInvestmentRow, investValorAtualCol + 1).setValue(newInvestmentValue);
 
-    // Recalcula rentabilidade (se o valor inicial for maior que 0)
     if (initialInvestmentValue > 0) {
       const calculatedRentability = ((newInvestmentValue - initialInvestmentValue) / initialInvestmentValue) * 100;
       investimentosSheet.getRange(currentInvestmentRow, investRentabilidadeCol + 1).setValue(calculatedRentability);
     }
 
-    // Registra a transação na aba 'Transacoes'
     saveTransaction({
       data: aporteData.data,
-      tipo: aporteData.tipoTransacao === 'Aporte' ? 'Saída' : 'Entrada', // Aporte é saída da conta, Resgate é entrada na conta
+      tipo: aporteData.tipoTransacao === 'Aporte' ? 'Saída' : 'Entrada', 
       valor: parseFloat(aporteData.valor),
       descricao: `${aporteData.tipoTransacao} em ${currentInvestmentName}`,
-      categoria: 'Investimentos', // Categoria genérica para investimentos
+      categoria: 'Investimentos', 
       conta: aporteData.conta,
       pessoa: aporteData.pessoa,
+      tipoPagamento: 'Transferência Bancária', 
       observacoes: `${aporteData.tipoTransacao} em ${currentInvestmentName}`
     });
     
     return true;
   } catch (e) {
-    log(`Erro ao registrar aporte/resgate: ${e.message}`);
+    log(`recordInvestmentMovement: Erro ao registrar aporte/resgate: ${e.message}`);
     return false;
   }
 }
@@ -1113,14 +1199,14 @@ function deleteInvestment(investId) {
     for (let i = 1; i < data.length; i++) {
       if (data[i][idColIndex] === investId) {
         sheet.deleteRow(i + 1);
-        log(`Investimento '${investId}' excluído.`);
+        log(`deleteInvestment: Investimento '${investId}' excluído.`);
         return true;
       }
     }
-    log(`Erro: Investimento com ID '${investId}' não encontrada para exclusão.`);
+    log(`deleteInvestment: Erro: Investimento com ID '${investId}' não encontrada para exclusão.`);
     return false;
   } catch (e) {
-    log(`Erro ao excluir investimento: ${e.message}`);
+    log(`deleteInvestment: Erro ao excluir investimento: ${e.message}`);
     return false;
   }
 }
@@ -1148,7 +1234,7 @@ function getFinancialFlowAnalysis(year, type) {
       throw new Error('Colunas de transação não encontradas para fluxo de caixa.');
     }
 
-    const flowData = {}; // { 'YYYY-MM' or 'YYYY': { revenues: X, expenses: Y } }
+    const flowData = {}; 
 
     for (let i = 1; i < transacoes.length; i++) {
       const row = transacoes[i];
@@ -1160,7 +1246,7 @@ function getFinancialFlowAnalysis(year, type) {
         let periodKey;
         if (type === 'monthly') {
           periodKey = Utilities.formatDate(transactionDate, Session.getScriptTimeZone(), 'yyyy-MM');
-        } else { // 'annual'
+        } else { 
           periodKey = String(transactionDate.getFullYear());
         }
 
@@ -1183,13 +1269,12 @@ function getFinancialFlowAnalysis(year, type) {
       balance: flowData[period].revenues - flowData[period].expenses
     }));
 
-    // Ordena os resultados por período
     results.sort((a, b) => a.period.localeCompare(b.period));
 
     return results;
 
   } catch (e) {
-    log(`Erro ao obter análise de fluxo de caixa: ${e.message}`);
+    log(`getFinancialFlowAnalysis: Erro ao obter análise de fluxo de caixa: ${e.message}`);
     return [];
   }
 }
@@ -1213,9 +1298,9 @@ function getAverageMonthlySpendings() {
       throw new Error('Colunas de transação não encontradas para cálculo de gastos médios.');
     }
 
-    const categoryMonthlySpendings = {}; // { 'Categoria': { 'YYYY-MM': totalGasto } }
-    const categoryTotalSpendings = {};    // { 'Categoria': totalGasto }
-    const categoryMonthsCount = {};       // { 'Categoria': countMeses }
+    const categoryMonthlySpendings = {}; 
+    const categoryTotalSpendings = {};    
+    const categoryMonthsCount = {};       
 
     for (let i = 1; i < transacoes.length; i++) {
       const row = transacoes[i];
@@ -1253,7 +1338,7 @@ function getAverageMonthlySpendings() {
     return averageSpendings;
 
   } catch (e) {
-    log(`Erro ao calcular gastos médios mensais: ${e.message}`);
+    log(`getAverageMonthlySpendings: Erro ao calcular gastos médios mensais: ${e.message}`);
     return {};
   }
 }
@@ -1273,14 +1358,13 @@ function getSpendingSuggestions() {
       return [{ category: 'N/A', averageSpend: 0, suggestion: 'Não há dados de gastos suficientes para gerar sugestões.' }];
     }
 
-    // Top 3 categorias de maior gasto (ou menos, se houver menos que 3)
     const topCategories = sortedCategories.slice(0, Math.min(sortedCategories.length, 3));
 
     topCategories.forEach(category => {
       const avg = avgSpendings[category];
       let suggestionText = '';
 
-      if (avg > 500) { // Exemplo de limite, ajuste conforme o perfil de gasto
+      if (avg > 500) { 
         suggestionText = `Este é um gasto significativo (R$ ${avg.toFixed(2)}/mês). Considere revisar hábitos como "comer fora", "transporte individual" ou "compras por impulso" para esta categoria.`;
       } else if (avg > 200) {
         suggestionText = `Um gasto moderado (R$ ${avg.toFixed(2)}/mês). Pequenos cortes ou alternativas mais baratas podem fazer diferença ao longo do tempo.`;
@@ -1292,7 +1376,7 @@ function getSpendingSuggestions() {
 
     return suggestions;
   } catch (e) {
-    log(`Erro ao gerar sugestões de gastos: ${e.message}`);
+    log(`getSpendingSuggestions: Erro ao gerar sugestões de gastos: ${e.message}`);
     return [];
   }
 }
@@ -1311,13 +1395,12 @@ function checkOverdueBillsAndNotify() {
     const dividas = dividasSheet.getDataRange().getValues();
     const headers = dividas[0];
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normaliza a data de hoje para comparação (sem hora/min/seg)
+    today.setHours(0, 0, 0, 0); 
 
     const nomeDividaColIndex = headers.indexOf('Nome da Dívida');
     const dataVencimentoColIndex = headers.indexOf('Data Vencimento');
     const statusColIndex = headers.indexOf('Status');
 
-    // Validação de colunas necessárias dentro da função
     if (nomeDividaColIndex === -1 || dataVencimentoColIndex === -1 || statusColIndex === -1) {
       throw new Error('Colunas de dívida (Nome da Dívida, Data Vencimento, Status) não encontradas para verificação de atraso. Verifique os cabeçalhos.');
     }
@@ -1328,14 +1411,12 @@ function checkOverdueBillsAndNotify() {
       const row = dividas[i];
       const status = row[statusColIndex];
       const dataVencimento = new Date(row[dataVencimentoColIndex]);
-      dataVencimento.setHours(0, 0, 0, 0); // Normaliza a data de vencimento
+      dataVencimento.setHours(0, 0, 0, 0); 
 
-      // Verifica se a dívida está ativa ou aguardando início e se a data de vencimento já passou
-      if ((status === 'Ativa' || status === 'Aguardando Início') && dataVencimento < today) {
+      if ((status && typeof status === 'string' && (status.trim() === 'Ativa' || status.trim() === 'Aguardando Início')) && dataVencimento < today) {
         overdueBills.push(row[nomeDividaColIndex]);
-        // Atualiza o status da dívida para 'Atrasada' diretamente na planilha
         dividasSheet.getRange(i + 1, statusColIndex + 1).setValue('Atrasada');
-        log(`Status da dívida '${row[nomeDividaColIndex]}' atualizado para 'Atrasada'.`);
+        log(`checkOverdueBillsAndNotify: Status da dívida '${row[nomeDividaColIndex]}' atualizado para 'Atrasada'.`);
       }
     }
 
@@ -1344,12 +1425,12 @@ function checkOverdueBillsAndNotify() {
       const subject = 'Alerta: Contas e Dívidas Atrasadas!';
       const body = `Olá,\n\nVocê tem as seguintes contas/dívidas em atraso:\n\n- ${overdueBills.join('\n- ')}\n\nPor favor, verifique-as no seu controle financeiro familiar para evitar juros e multas.\n\nAtenciosamente,\nSeu Controle Financeiro Familiar`;
       MailApp.sendEmail(recipientEmail, subject, body);
-      log(`E-mail de contas atrasadas enviado para ${recipientEmail}. Dívidas: ${overdueBills.join(', ')}`);
+      log(`checkOverdueBillsAndNotify: E-mail de contas atrasadas enviado para ${recipientEmail}. Dívidas: ${overdueBills.join(', ')}`);
     } else {
-      log('Nenhuma conta ou dívida atrasada encontrada.');
+      log('checkOverdueBillsAndNotify: Nenhuma conta ou dívida atrasada encontrada.');
     }
   } catch (e) {
-    log(`Erro ao verificar e notificar contas atrasadas: ${e.message}`);
+    log(`checkOverdueBillsAndNotify: Erro ao verificar e notificar contas atrasadas: ${e.message}`);
   }
 }
 
@@ -1363,9 +1444,9 @@ function sendGoalReachedEmail(goalName) {
     const subject = `🥳 Parabéns! Meta "${goalName}" Alcançada!`;
     const body = `Olá,\n\nQue notícia fantástica! 🎉\n\nA meta "${goalName}" foi atingida com sucesso!\n\nEste é o resultado do seu planejamento e disciplina. Continue assim para alcançar ainda mais objetivos financeiros!\n\nAtenciosamente,\nSeu Controle Financeiro Familiar`;
     MailApp.sendEmail(recipientEmail, subject, body);
-    log(`E-mail de meta alcançada enviado para ${recipientEmail} para a meta "${goalName}".`);
+    log(`sendGoalReachedEmail: E-mail de meta alcançada enviado para ${recipientEmail} para a meta "${goalName}".`);
   } catch (e) {
-    log(`Erro ao enviar e-mail de meta alcançada: ${e.message}`);
+    log(`sendGoalReachedEmail: Erro ao enviar e-mail de meta alcançada: ${e.message}`);
   }
 }
 
@@ -1386,27 +1467,23 @@ function saveRecord(sheetName, recordData, idPrefix, nameColumnHeader) {
     const allData = sheet.getDataRange().getValues();
     const headers = allData[0];
     const nameColIndex = headers.indexOf(nameColumnHeader);
-    const idColIndex = headers.indexOf('ID'); // Assume que toda aba de CRUD tem uma coluna ID
+    const idColIndex = headers.indexOf('ID'); 
 
     if (idColIndex === -1 || nameColIndex === -1) {
-      throw new Error(`Colunas 'ID' ou '${nameColumnHeader}' não encontradas na aba '${sheetName}'.`);
+      throw new Error(`saveRecord: Colunas 'ID' ou '${nameColumnHeader}' não encontradas na aba '${sheetName}'. Headers: ${headers}`);
     }
 
-    if (!recordData.name) { // 'name' é a propriedade genérica para o nome do registro
-      throw new Error(`Nome do registro (${nameColumnHeader}) é obrigatório.`);
+    if (!recordData.name) { 
+      throw new Error(`saveRecord: Nome do registro (${nameColumnHeader}) é obrigatório.`);
     }
 
-    // Procura por registro existente se um ID for fornecido
     if (recordData.id && recordData.id.startsWith(idPrefix)) {
       for (let i = 1; i < allData.length; i++) {
         if (allData[i][idColIndex] === recordData.id) {
-          const rowToUpdate = allData[i]; // Pega a linha existente para modificá-la
+          const rowToUpdate = allData[i]; 
 
-          // Atualiza as propriedades dinamicamente
           for (const key in recordData) {
             if (Object.prototype.hasOwnProperty.call(recordData, key)) {
-              // Converte o nome da chave para o cabeçalho da coluna, se necessário.
-              // Por exemplo, recordData.nome para "Nome da Categoria"
               let headerToMatch = key;
               if (key === 'nome' && sheetName === SHEETS.CATEGORIAS) headerToMatch = 'Nome da Categoria';
               if (key === 'nome' && sheetName === SHEETS.CONTAS) headerToMatch = 'Nome da Conta';
@@ -1414,7 +1491,6 @@ function saveRecord(sheetName, recordData, idPrefix, nameColumnHeader) {
 
               const headerIndex = headers.indexOf(headerToMatch);
               if (headerIndex !== -1) {
-                // Trata valores numéricos para Saldo Inicial/Atual
                 if (headerToMatch === 'Saldo Inicial' || headerToMatch === 'Saldo Atual') {
                     rowToUpdate[headerIndex] = parseFloat(recordData[key]);
                 } else {
@@ -1424,20 +1500,18 @@ function saveRecord(sheetName, recordData, idPrefix, nameColumnHeader) {
             }
           }
           sheet.getRange(i + 1, 1, 1, headers.length).setValues([rowToUpdate]);
-          log(`Registro '${recordData.name}' (ID: ${recordData.id}) atualizado na aba '${sheetName}'.`);
+          log(`saveRecord: Registro '${recordData.name}' (ID: ${recordData.id}) atualizado na aba '${sheetName}'.`);
           return true;
         }
       }
     }
 
-    // Se não encontrou ou não tem ID, adiciona um novo registro
     const newId = `${idPrefix}${sheet.getLastRow() + 1}`;
-    const newRow = new Array(headers.length).fill(''); // Cria uma linha vazia com o tamanho dos cabeçalhos
+    const newRow = new Array(headers.length).fill(''); 
     newRow[idColIndex] = newId;
     
     for (const key in recordData) {
         if (Object.prototype.hasOwnProperty.call(recordData, key)) {
-            // Converte o nome da chave para o cabeçalho da coluna, se necessário.
             let headerToMatch = key;
             if (key === 'nome' && sheetName === SHEETS.CATEGORIAS) headerToMatch = 'Nome da Categoria';
             if (key === 'nome' && sheetName === SHEETS.CONTAS) headerToMatch = 'Nome da Conta';
@@ -1445,7 +1519,6 @@ function saveRecord(sheetName, recordData, idPrefix, nameColumnHeader) {
 
             const headerIndex = headers.indexOf(headerToMatch);
             if (headerIndex !== -1) {
-                // Trata valores numéricos para Saldo Inicial/Atual
                 if (headerToMatch === 'Saldo Inicial' || headerToMatch === 'Saldo Atual') {
                     newRow[headerIndex] = parseFloat(recordData[key]);
                 } else {
@@ -1454,16 +1527,15 @@ function saveRecord(sheetName, recordData, idPrefix, nameColumnHeader) {
             }
         }
     }
-    // Garante que o nome principal seja preenchido usando o nome da coluna correto
     if (nameColIndex !== -1) {
         newRow[nameColIndex] = recordData.name;
     }
 
     sheet.appendRow(newRow);
-    log(`Novo registro '${recordData.name}' (ID: ${newId}) salvo na aba '${sheetName}'.`);
+    log(`saveRecord: Novo registro '${recordData.name}' (ID: ${newId}) salvo na aba '${sheetName}'.`);
     return true;
   } catch (e) {
-    log(`Erro ao salvar registro na aba '${sheetName}': ${e.message}`);
+    log(`saveRecord: Erro ao salvar registro na aba '${sheetName}': ${e.message}`);
     return false;
   }
 }
@@ -1482,27 +1554,26 @@ function deleteRecord(sheetName, recordId) {
     const idColIndex = headers.indexOf('ID');
 
     if (idColIndex === -1) {
-      throw new Error(`Coluna 'ID' não encontrada na aba '${sheetName}'.`);
+      throw new Error(`deleteRecord: Coluna 'ID' não encontrada na aba '${sheetName}'.`);
     }
 
     for (let i = 1; i < data.length; i++) {
       if (data[i][idColIndex] === recordId) {
         sheet.deleteRow(i + 1);
-        log(`Registro '${recordId}' excluído da aba '${sheetName}'.`);
+        log(`deleteRecord: Registro '${recordId}' excluído da aba '${sheetName}'.`);
         return true;
       }
     }
-    log(`Erro: Registro com ID '${recordId}' não encontrado para exclusão na aba '${sheetName}'.`);
+    log(`deleteRecord: Erro: Registro com ID '${recordId}' não encontrado para exclusão na aba '${sheetName}'.`);
     return false;
   } catch (e) {
-    log(`Erro ao excluir registro da aba '${sheetName}': ${e.message}`);
+    log(`deleteRecord: Erro ao excluir registro da aba '${sheetName}': ${e.message}`);
     return false;
   }
 }
 
 // --- Funções Específicas para CRUD de Categorias ---
 function saveCategory(categoryData) {
-    // categoryData deve ter { id, nome: "Nome da Categoria", tipo: "Tipo" }
     return saveRecord(SHEETS.CATEGORIAS, { id: categoryData.id, name: categoryData.nome, tipo: categoryData.tipo }, 'CAT', 'Nome da Categoria');
 }
 function deleteCategory(categoryId) {
@@ -1511,7 +1582,6 @@ function deleteCategory(categoryId) {
 
 // --- Funções Específicas para CRUD de Contas ---
 function saveAccount(accountData) {
-    // accountData deve ter { id, nome: "Nome da Conta", banco: "Banco", saldoInicial: X, saldoAtual: Y, tipo: "Tipo" }
     return saveRecord(SHEETS.CONTAS, { id: accountData.id, name: accountData.nome, banco: accountData.banco, saldoInicial: accountData.saldoInicial, saldoAtual: accountData.saldoAtual, tipo: accountData.tipo }, 'CNT', 'Nome da Conta');
 }
 function deleteAccount(accountId) {
@@ -1520,9 +1590,122 @@ function deleteAccount(accountId) {
 
 // --- Funções Específicas para CRUD de Pessoas ---
 function savePerson(personData) {
-    // personData deve ter { id, nome: "Nome da Pessoa" }
     return saveRecord(SHEETS.PESSOAS, { id: personData.id, name: personData.nome }, 'PES', 'Nome');
 }
 function deletePerson(personId) {
     return deleteRecord(SHEETS.PESSOAS, personId);
+}
+
+/**
+ * Adiciona a coluna "Tipo de Pagamento" à aba "Transacoes".
+ * Esta função deve ser executada UMA ÚNICA VEZ diretamente no editor do Apps Script.
+ */
+function addPaymentTypeColumn() {
+  try {
+    const sheet = getSheet(SHEETS.TRANSACOES);
+    const lastColumn = sheet.getLastColumn();
+    const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+
+    const newColumnHeader = 'Tipo de Pagamento';
+
+    if (headers.includes(newColumnHeader)) {
+      log(`addPaymentTypeColumn: A coluna '${newColumnHeader}' já existe na aba '${SHEETS.TRANSACOES}'. Nenhuma ação necessária.`);
+      return;
+    }
+
+    sheet.insertColumnsAfter(lastColumn, 1);
+    sheet.getRange(1, lastColumn + 1).setValue(newColumnHeader);
+    
+    log(`addPaymentTypeColumn: Coluna '${newColumnHeader}' adicionada com sucesso à aba '${SHEETS.TRANSACOES}'.`);
+  } catch (e) {
+    log(`addPaymentTypeColumn: Erro ao adicionar coluna 'Tipo de Pagamento': ${e.message}`);
+  }
+}
+
+/**
+ * Adiciona as colunas "Quantidade de Parcelas" e "Periodicidade" à aba "Dividas".
+ * Esta função deve ser executada UMA ÚNICA VEZ diretamente no editor do Apps Script.
+ */
+function addInstallmentColumns() {
+  try {
+    const sheet = getSheet(SHEETS.DIVIDAS);
+    const lastColumn = sheet.getLastColumn();
+    const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+
+    const newColumn1Header = 'Quantidade de Parcelas';
+    const newColumn2Header = 'Periodicidade';
+
+    let columnsAdded = false;
+
+    if (!headers.includes(newColumn1Header)) {
+      sheet.insertColumnsAfter(lastColumn, 1);
+      sheet.getRange(1, lastColumn + 1).setValue(newColumn1Header);
+      log(`addInstallmentColumns: Coluna '${newColumn1Header}' adicionada com sucesso à aba '${SHEETS.DIVIDAS}'.`);
+      columnsAdded = true;
+    } else {
+      log(`addInstallmentColumns: A coluna '${newColumn1Header}' já existe na aba '${SHEETS.DIVIDAS}'. Nenhuma ação necessária.`);
+    }
+
+    const currentLastColumn = sheet.getLastColumn();
+
+    if (!headers.includes(newColumn2Header)) {
+      sheet.insertColumnsAfter(currentLastColumn, 1);
+      sheet.getRange(1, currentLastColumn + 1).setValue(newColumn2Header);
+      log(`addInstallmentColumns: Coluna '${newColumn2Header}' adicionada com sucesso à aba '${SHEETS.DIVIDAS}'.`);
+      columnsAdded = true;
+    } else {
+      log(`addInstallmentColumns: A coluna '${newColumn2Header}' já existe na aba '${SHEETS.DIVIDAS}'. Nenhuma ação necessária.`);
+    }
+
+    if (!columnsAdded) {
+      log('addInstallmentColumns: Nenhuma nova coluna de parcela foi adicionada. Ambas já existiam.');
+    }
+
+  } catch (e) {
+    log(`addInstallmentColumns: Erro ao adicionar colunas de parcelamento: ${e.message}`);
+  }
+}
+
+/**
+ * Adiciona as colunas "Tipo de Aporte" e "Tipo de Movimentação" à aba "Investimentos".
+ * Esta função deve ser executada UMA ÚNICA VEZ diretamente no editor do Apps Script.
+ */
+function addInvestmentPlanColumns() {
+  try {
+    const sheet = getSheet(SHEETS.INVESTIMENTOS);
+    const lastColumn = sheet.getLastColumn();
+    const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+
+    const newColumn1Header = 'Tipo de Aporte';
+    const newColumn2Header = 'Tipo de Movimentação';
+
+    let columnsAdded = false;
+
+    if (!headers.includes(newColumn1Header)) {
+      sheet.insertColumnsAfter(lastColumn, 1);
+      sheet.getRange(1, lastColumn + 1).setValue(newColumn1Header);
+      log(`addInvestmentPlanColumns: Coluna '${newColumn1Header}' adicionada com sucesso à aba '${SHEETS.INVESTIMENTOS}'.`);
+      columnsAdded = true;
+    } else {
+      log(`addInvestmentPlanColumns: A coluna '${newColumn1Header}' já existe na aba '${SHEETS.INVESTIMENTOS}'. Nenhuma ação necessária.`);
+    }
+
+    const currentLastColumn = sheet.getLastColumn();
+
+    if (!headers.includes(newColumn2Header)) {
+      sheet.insertColumnsAfter(currentLastColumn, 1);
+      sheet.getRange(1, currentLastColumn + 1).setValue(newColumn2Header);
+      log(`addInvestmentPlanColumns: Coluna '${newColumn2Header}' adicionada com sucesso à aba '${SHEETS.INVESTIMENTOS}'.`);
+      columnsAdded = true;
+    } else {
+      log(`addInvestmentPlanColumns: A coluna '${newColumn2Header}' já existe na aba '${SHEETS.INVESTIMENTOS}'. Nenhuma ação necessária.`);
+    }
+
+    if (!columnsAdded) {
+      log('addInvestmentPlanColumns: Nenhuma nova coluna de plano de investimento foi adicionada. Ambas já existiam.');
+    }
+
+  } catch (e) {
+    log(`addInvestmentPlanColumns: Erro ao adicionar colunas de plano de investimento: ${e.message}`);
+  }
 }

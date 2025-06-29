@@ -146,7 +146,7 @@
 </head>
 <body>
   <div class="container">
-    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
+    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
     
     <h1 class="mb-4">Dashboard Financeiro</h1>
 
@@ -184,24 +184,37 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
   <script>
     $(document).ready(function() {
       // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
       // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
       // VOCÊ DEVE ATUALIZAR ESTE URL EM TODOS OS ARQUIVOS HTML DO SEU PROJETO.
-      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec
+      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec
       const mainAppUrl = "https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec"; 
       $('.btn-back').attr('href', mainAppUrl);
 
+      // Função auxiliar para formatar valor como moeda BRL
+      function formatCurrency(value) {
+          if (typeof value !== 'number') {
+              value = parseFloat(value);
+          }
+          if (isNaN(value)) {
+              return 'R$ 0,00';
+          }
+          return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+
       // Carregar Saldo Total das Contas para o Dashboard
       function loadAccountBalances() {
+        console.log("loadAccountBalances: Iniciando carregamento de saldos de contas.");
         google.script.run.withSuccessHandler(function(data) {
+          console.log("loadAccountBalances: Dados de saldos recebidos:", data);
           let totalBalance = 0;
-          let html = '<ul class="list-group list-group-flush">'; // Usar list-group-flush para remover bordas verticais
+          let html = '<ul class="list-group list-group-flush">'; 
           
-          if (data.length <= 1) {
-            html = '<p class="text-muted">Nenhuma conta configurada ainda na sua planilha.</p>';
+          if (!data || data.length <= 1 || !data[0] || !Array.isArray(data[0])) {
+            html = '<p class="text-muted">Nenhuma conta configurada ou dados inválidos na sua planilha.</p>';
+            console.warn("loadAccountBalances: Nenhuma conta ou dados de conta inválidos recebidos.");
           } else {
             const headers = data[0];
             const accountNameCol = headers.indexOf('Nome da Conta');
@@ -209,7 +222,7 @@
             const bancoCol = headers.indexOf('Banco');
 
             if (accountNameCol === -1 || saldoAtualCol === -1 || bancoCol === -1) {
-                console.error("Cabeçalhos da aba 'Contas' inválidos. Verifique 'Nome da Conta', 'Saldo Atual', 'Banco'.");
+                console.error("loadAccountBalances: Cabeçalhos da aba 'Contas' inválidos. Verifique 'Nome da Conta', 'Saldo Atual', 'Banco'. Headers:", headers);
                 $('#saldoContas').html('<div class="alert alert-danger">Erro ao carregar saldos. Verifique a estrutura da aba "Contas".</div>');
                 return;
             }
@@ -220,33 +233,40 @@
               const currentBalance = parseFloat(row[saldoAtualCol] || 0);
               totalBalance += currentBalance;
               html += `<li class="list-group-item d-flex justify-content-between align-items-center">
-                          <span>${accountName} <span class="text-muted">(${banco})</span></span>
-                          <span class="badge bg-${currentBalance >= 0 ? 'success' : 'danger'}">${currentBalance.toFixed(2)}</span>
+                          <span>${accountName} <span class="text-muted">(${banco || 'N/A'})</span></span>
+                          <span class="badge bg-${currentBalance >= 0 ? 'success' : 'danger'}">${formatCurrency(currentBalance)}</span>
                         </li>`;
             });
             html += '</ul>';
+            console.log("loadAccountBalances: Saldos de contas populados.");
           }
-          html += `<h5 class="mt-3">Saldo Consolidado Total: <span class="text-${totalBalance >= 0 ? 'success' : 'danger'}">R$ ${totalBalance.toFixed(2)}</span></h5>`;
+          html += `<h5 class="mt-3">Saldo Consolidado Total: <span class="text-${totalBalance >= 0 ? 'success' : 'danger'}">${formatCurrency(totalBalance)}</span></h5>`;
           $('#saldoContas').html(html);
+        }).withFailureHandler(function(error) {
+            console.error("loadAccountBalances: Erro ao carregar saldos do backend:", error.message);
+            $('#saldoContas').html('<div class="alert alert-danger">Erro inesperado ao carregar saldos: ' + error.message + '</div>');
         }).getSheetData('Contas');
       }
 
       // Carregar Próximas Contas a Pagar / Dívidas Vencendo
       function loadUpcomingBills() {
+        console.log("loadUpcomingBills: Iniciando carregamento de próximas contas/dívidas.");
         google.script.run.withSuccessHandler(function(data) {
+          console.log("loadUpcomingBills: Dados de dívidas recebidos:", data);
           let html = '<ul class="list-group list-group-flush">';
-          if (data.length <= 1) {
+          if (!data || data.length <= 1 || !data[0] || !Array.isArray(data[0])) {
             html += '<li class="list-group-item text-muted">Nenhuma dívida registrada ou próxima do vencimento.</li>';
+            console.warn("loadUpcomingBills: Nenhuma dívida ou dados de dívida inválidos recebidos.");
           } else {
             const headers = data[0];
             const nomeDividaCol = headers.indexOf('Nome da Dívida');
             const dataVencimentoCol = headers.indexOf('Data Vencimento');
             const statusCol = headers.indexOf('Status');
-            const valorTotalCol = headers.indexOf('Valor Total'); // Adicionado para exibir o valor
-            const valorPagoCol = headers.indexOf('Valor Pago'); // Adicionado para calcular restante
+            const valorTotalCol = headers.indexOf('Valor Total'); 
+            const valorPagoCol = headers.indexOf('Valor Pago'); 
 
             if ([nomeDividaCol, dataVencimentoCol, statusCol, valorTotalCol, valorPagoCol].some(idx => idx === -1)) {
-                console.error("Cabeçalhos da aba 'Dividas' inválidos. Verifique a estrutura.");
+                console.error("loadUpcomingBills: Cabeçalhos da aba 'Dividas' inválidos. Verifique a estrutura. Headers:", headers);
                 $('#proximasContas').html('<div class="alert alert-danger">Erro ao carregar dívidas. Verifique a estrutura da aba "Dividas".</div>');
                 return;
             }
@@ -258,25 +278,24 @@
             data.slice(1).forEach(row => {
               const nomeDivida = row[nomeDividaCol];
               const dataVencimento = new Date(row[dataVencimentoCol]);
+              dataVencimento.setHours(0,0,0,0); 
               const status = row[statusCol];
               const valorTotal = parseFloat(row[valorTotalCol] || 0);
               const valorPago = parseFloat(row[valorPagoCol] || 0);
               const valorRestante = valorTotal - valorPago;
 
-              if (status === 'Ativa' || status === 'Aguardando Início') {
+              // Condição para incluir dívidas: Ativa ou Aguardando Início E data de vencimento está no futuro próximo (30 dias) ou já passou.
+              if ((status && typeof status === 'string' && (status.trim() === 'Ativa' || status.trim() === 'Aguardando Início')) && (dataVencimento.getTime() - today.getTime()) <= (30 * 24 * 60 * 60 * 1000) && valorRestante > 0) {
                   const diffTime = dataVencimento.getTime() - today.getTime();
                   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-                  // Inclui dívidas atrasadas, vencendo hoje ou nos próximos 30 dias
-                  if (diffDays <= 30) { // Considera 30 dias para frente e todos os atrasados
-                      upcomingBills.push({ 
-                          name: nomeDivida, 
-                          date: dataVencimento.toLocaleDateString('pt-BR'), 
-                          daysLeft: diffDays, 
-                          statusType: diffDays < 0 ? 'Atrasado' : 'Próximo',
-                          valor: valorRestante
-                      });
-                  }
+                  upcomingBills.push({ 
+                      name: nomeDivida, 
+                      date: dataVencimento.toLocaleDateString('pt-BR'), 
+                      daysLeft: diffDays, 
+                      statusType: diffDays < 0 ? 'Atrasado' : 'Próximo',
+                      valor: valorRestante
+                  });
               }
             });
 
@@ -301,16 +320,21 @@
 
                     html += `<li class="list-group-item d-flex justify-content-between align-items-center">
                                 <span>${bill.name} - ${bill.date}</span>
-                                <span class="badge bg-secondary me-2">R$ ${bill.valor.toFixed(2)}</span>
+                                <span class="badge bg-secondary me-2">${formatCurrency(bill.valor)}</span>
                                 <span class="badge ${statusClass}">${statusText}</span>
                              </li>`;
                 });
+                console.log(`loadUpcomingBills: Próximas contas/dívidas populadas. Total: ${upcomingBills.length}.`);
             } else {
                 html += '<li class="list-group-item text-muted">Nenhuma dívida próxima ou atrasada.</li>';
+                console.log("loadUpcomingBills: Nenhuma dívida próxima ou atrasada encontrada.");
             }
           }
           html += '</ul>';
           $('#proximasContas').html(html);
+        }).withFailureHandler(function(error) {
+            console.error("loadUpcomingBills: Erro ao carregar próximas contas/dívidas do backend:", error.message);
+            $('#proximasContas').html('<div class="alert alert-danger">Erro inesperado ao carregar dívidas: ' + error.message + '</div>');
         }).getSheetData('Dividas');
       }
 

@@ -53,10 +53,6 @@
       padding: 0.75rem 1.25rem;
       transition: all 0.3s ease;
     }
-    .btn-primary {
-      background-color: #007bff;
-      border-color: #007bff;
-    }
     .btn-primary:hover {
       background-color: #0056b3;
       border-color: #0056b3;
@@ -139,7 +135,7 @@
 </head>
 <body>
   <div class="container">
-    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
+    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
     
     <h1 class="mb-4">Gerenciar Categorias</h1>
 
@@ -191,13 +187,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
   <script>
     $(document).ready(function() {
       // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
       // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
       // VOCÊ DEVE ATUALIZAR ESTE URL EM TODOS OS ARQUIVOS HTML DO SEU PROJETO.
-      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec
+      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec
       const mainAppUrl = "https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec"; 
       $('.btn-back').attr('href', mainAppUrl);
 
@@ -206,10 +201,26 @@
 
       // Carregar Categorias
       function loadCategories() {
+        console.log("loadCategories: Iniciando carregamento de categorias.");
         google.script.run.withSuccessHandler(function(data) {
+          console.log("loadCategories: Dados de categorias recebidos:", data);
+          // Adicionado verificação de dados vazios ou formato inesperado
+          if (!data || data.length === 0 || !data[0] || !Array.isArray(data[0])) {
+            console.warn("loadCategories: Nenhuma categoria ou dados de categoria inválidos recebidos.");
+            $('#categoryList').html('<tr><td colspan="3" class="text-center text-muted">Nenhuma categoria registrada ainda ou erro nos dados.</td></tr>');
+            categoriesHeaders = []; // Garante que headers fiquem vazios em caso de erro
+            allCategories = []; // Garante que a lista de categorias fique vazia
+            return;
+          }
+          
           categoriesHeaders = data[0]; // Armazena os cabeçalhos
           allCategories = data.slice(1); // Ignora o cabeçalho e armazena
           renderCategories(allCategories);
+          console.log("loadCategories: Categorias carregadas e renderizadas.");
+
+        }).withFailureHandler(function(error) {
+            console.error("loadCategories: Erro ao carregar categorias do backend:", error.message);
+            $('#categoryList').html('<tr><td colspan="3" class="text-center text-danger">Erro ao carregar categorias: ' + error.message + '</td></tr>');
         }).getSheetData('Categorias');
       }
 
@@ -219,33 +230,50 @@
           html = '<tr><td colspan="3" class="text-center text-muted">Nenhuma categoria registrada ainda.</td></tr>';
         } else {
           // Os índices das colunas são obtidos dos cabeçalhos armazenados
+          // Verifica se categoriesHeaders foi populado corretamente
+          if (!categoriesHeaders || categoriesHeaders.length === 0) {
+              console.error("renderCategories: Cabeçalhos de categorias não disponíveis. Possível erro em loadCategories.");
+              html = '<tr><td colspan="3" class="text-center text-danger">Erro interno: Cabeçalhos não carregados.</td></tr>';
+              $('#categoryList').html(html);
+              return;
+          }
+
           const idCol = categoriesHeaders.indexOf('ID');
           const nomeCol = categoriesHeaders.indexOf('Nome da Categoria');
           const tipoCol = categoriesHeaders.indexOf('Tipo');
+
+          if (idCol === -1 || nomeCol === -1 || tipoCol === -1) {
+              console.error("renderCategories: Cabeçalhos da aba 'Categorias' inválidos. Verifique a estrutura: 'ID', 'Nome da Categoria', 'Tipo'. Headers atuais:", categoriesHeaders);
+              $('#categoryList').html('<tr><td colspan="3" class="text-center text-danger">Erro: Estrutura da aba Categorias incorreta.</td></tr>');
+              return;
+          }
 
           categoriesToRender.forEach(row => {
             const categoryId = row[idCol];
             const categoryName = row[nomeCol];
             const categoryType = row[tipoCol];
+            // Garante que os valores não são undefined/null antes de usar
             html += `<tr>
-              <td>${categoryName}</td>
-              <td>${categoryType}</td>
+              <td>${categoryName || ''}</td>
+              <td>${categoryType || ''}</td>
               <td>
                 <div class="btn-group-vertical" role="group" aria-label="Ações da Categoria">
-                  <button class="btn btn-sm btn-info edit-btn" data-id="${categoryId}" data-name="${categoryName}" data-type="${categoryType}">Editar</button>
-                  <button class="btn btn-sm btn-danger delete-btn" data-id="${categoryId}" data-name="${categoryName}">Excluir</button>
+                  <button class="btn btn-sm btn-info edit-btn" data-id="${categoryId}" data-name="${categoryName || ''}" data-type="${categoryType || ''}">Editar</button>
+                  <button class="btn btn-sm btn-danger delete-btn" data-id="${categoryId}" data-name="${categoryName || ''}">Excluir</button>
                 </div>
               </td>
             </tr>`;
           });
         }
         $('#categoryList').html(html);
+        console.log("renderCategories: Categorias renderizadas na tabela.");
 
         // Adicionar listeners para botões de Editar
         $('.edit-btn').on('click', function() {
           $('#categoryId').val($(this).data('id'));
           $('#categoryName').val($(this).data('name'));
           $('#categoryType').val($(this).data('type'));
+          console.log("edit-btn: Formulário de categoria preenchido para edição.");
         });
 
         // Adicionar listeners para botões de Excluir
@@ -253,21 +281,24 @@
           const categoryId = $(this).data('id');
           const categoryName = $(this).data('name');
           if (confirm(`Tem certeza que deseja excluir a categoria "${categoryName}"?`)) {
+            console.log("delete-btn: Solicitando exclusão da categoria ID:", categoryId);
             google.script.run
               .withSuccessHandler(function(success) {
                 if (success) {
                   $('#categoryMessage').html('<div class="alert alert-success">Categoria excluída com sucesso!</div>');
                   loadCategories();
-                  $('#categoryForm')[0].reset(); // Limpa formulário após exclusão
+                  $('#categoryForm')[0].reset(); 
                   $('#categoryId').val('');
                   $('#categoryForm').removeClass('was-validated');
+                  console.log("delete-btn: Categoria excluída com sucesso.");
                 } else {
                   $('#categoryMessage').html('<div class="alert alert-danger">Erro ao excluir categoria.</div>');
+                  console.error("delete-btn: Erro ao excluir categoria (backend retornou false).");
                 }
               })
               .withFailureHandler(function(error) {
                 $('#categoryMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao excluir categoria:", error);
+                console.error("delete-btn: Erro inesperado do backend ao excluir categoria:", error);
               })
               .deleteCategory(categoryId);
           }
@@ -280,27 +311,31 @@
         const form = $(this)[0];
         if (!form.checkValidity()) {
           event.stopPropagation();
+          console.warn("categoryForm: Formulário inválido.");
         } else {
           const categoryData = {
             id: $('#categoryId').val(),
-            nome: $('#categoryName').val(), // 'nome' para mapear para "Nome da Categoria"
-            tipo: $('#categoryType').val() // 'tipo' para mapear para "Tipo"
+            nome: $('#categoryName').val(), 
+            tipo: $('#categoryType').val() 
           };
+          console.log("saveCategory: Enviando dados:", categoryData);
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
                 $('#categoryMessage').html('<div class="alert alert-success">Categoria salva/atualizada com sucesso!</div>');
                 form.reset();
                 form.classList.remove('was-validated');
-                $('#categoryId').val(''); // Limpa o ID para nova inserção
+                $('#categoryId').val(''); 
                 loadCategories();
+                console.log("saveCategory: Categoria salva/atualizada com sucesso.");
               } else {
                 $('#categoryMessage').html('<div class="alert alert-danger">Erro ao salvar categoria. Verifique os logs.</div>');
+                console.error("saveCategory: Erro ao salvar categoria (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#categoryMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao salvar categoria:", error);
+                console.error("saveCategory: Erro inesperado do backend:", error);
             })
             .saveCategory(categoryData);
         }
@@ -311,14 +346,21 @@
       $('#clearFormBtn').on('click', function() {
         $('#categoryForm')[0].reset();
         $('#categoryForm').removeClass('was-validated');
-        $('#categoryId').val(''); // Garante que o ID de edição seja limpo
+        $('#categoryId').val(''); 
         $('#categoryMessage').empty();
+        console.log("clearFormBtn: Formulário de categoria limpo.");
       });
 
       // Busca parcial no campo de pesquisa
       $('#categorySearch').on('keyup', function() {
         const searchTerm = $(this).val().toLowerCase();
-        // Os índices das colunas são obtidos dos cabeçalhos armazenados
+        // Verifica se categoriesHeaders foi populado corretamente
+        if (!categoriesHeaders || categoriesHeaders.length === 0) {
+            console.warn("categorySearch: Cabeçalhos não disponíveis para busca.");
+            renderCategories([]); // Limpa a tabela se os cabeçalhos não estão lá
+            return;
+        }
+
         const nomeCol = categoriesHeaders.indexOf('Nome da Categoria');
         const tipoCol = categoriesHeaders.indexOf('Tipo');
 
@@ -327,12 +369,14 @@
                  (tipoCol !== -1 && row[tipoCol] && String(row[tipoCol]).toLowerCase().includes(searchTerm));
         });
         renderCategories(filtered);
+        console.log("categorySearch: Pesquisa de categoria executada.");
       });
 
       // Limpar Busca
       $('#clearSearchBtn').on('click', function() {
         $('#categorySearch').val('');
-        renderCategories(allCategories); // Renderiza todas novamente
+        renderCategories(allCategories); 
+        console.log("clearSearchBtn: Pesquisa de categoria limpa.");
       });
 
 

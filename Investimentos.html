@@ -53,10 +53,6 @@
       padding: 0.75rem 1.25rem;
       transition: all 0.3s ease;
     }
-    .btn-primary {
-      background-color: #007bff;
-      border-color: #007bff;
-    }
     .btn-primary:hover {
       background-color: #0056b3;
       border-color: #0056b3;
@@ -190,12 +186,12 @@
       </div>
       <div class="col-md-4 col-sm-6">
         <label for="investInitialValue" class="form-label">Valor Inicial (R$)</label>
-        <input type="number" step="0.01" class="form-control" id="investInitialValue" required>
+        <input type="text" class="form-control" id="investInitialValue" required inputmode="numeric">
         <div class="invalid-feedback">Por favor, insira o valor inicial.</div>
       </div>
       <div class="col-md-4 col-sm-6">
         <label for="investCurrentValue" class="form-label">Valor Atual (R$)</label>
-        <input type="number" step="0.01" class="form-control" id="investCurrentValue" readonly>
+        <input type="text" class="form-control" id="investCurrentValue" readonly inputmode="numeric">
         <div class="form-text">Preenchido automaticamente ao salvar ou atualizar.</div>
       </div>
       <div class="col-md-4 col-sm-12">
@@ -220,6 +216,24 @@
         <label for="investStartDate" class="form-label">Data do Aporte Inicial</label>
         <input type="date" class="form-control" id="investStartDate" required>
         <div class="invalid-feedback">Por favor, insira a data do aporte inicial.</div>
+      </div>
+      <div class="col-md-6 col-sm-12">
+        <label for="investMovementType" class="form-label">Tipo de Aporte</label>
+        <select class="form-select" id="investMovementType" required>
+          <option value="">Selecione...</option>
+          <option value="Único">Único</option>
+          <option value="Recorrente">Recorrente</option>
+        </select>
+        <div class="invalid-feedback">Por favor, selecione o tipo de aporte.</div>
+      </div>
+      <div class="col-md-6 col-sm-12">
+        <label for="investAutomationType" class="form-label">Tipo de Movimentação</label>
+        <select class="form-select" id="investAutomationType" required>
+          <option value="">Selecione...</option>
+          <option value="Manual">Manual</option>
+          <option value="Automático">Automático</option>
+        </select>
+        <div class="invalid-feedback">Por favor, selecione o tipo de movimentação.</div>
       </div>
       <div class="col-12">
         <label for="investObservations" class="form-label">Observações</label>
@@ -247,12 +261,14 @@
             <th>Inicial</th>
             <th>Atual</th>
             <th>Rentab. (%)</th>
-            <th>Data Aporte</th>
+            <th>Aporte Inicial</th>
+            <th>Tipo Aporte</th>
+            <th>Movimento</th>
             <th>Ações</th>
           </tr>
         </thead>
         <tbody id="investmentList">
-          <tr><td colspan="8" class="text-center">Carregando investimentos...</td></tr>
+          <tr><td colspan="10" class="text-center">Carregando investimentos...</td></tr>
         </tbody>
       </table>
     </div>
@@ -272,7 +288,7 @@
 
               <div class="mb-3">
                 <label for="newInvestValue" class="form-label">Novo Valor Atual (R$)</label>
-                <input type="number" step="0.01" class="form-control" id="newInvestValue" required>
+                <input type="text" class="form-control" id="newInvestValue" required inputmode="numeric">
                 <div class="invalid-feedback">Por favor, insira o novo valor atual.</div>
               </div>
               <div class="mb-3">
@@ -314,7 +330,7 @@
               </div>
               <div class="mb-3">
                 <label for="movementValue" class="form-label">Valor (R$)</label>
-                <input type="number" step="0.01" class="form-control" id="movementValue" required>
+                <input type="text" class="form-control" id="movementValue" required inputmode="numeric">
                 <div class="invalid-feedback">Por favor, insira o valor.</div>
               </div>
               <div class="mb-3">
@@ -340,8 +356,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
-  <script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script> <script>
     $(document).ready(function() {
       // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
       // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
@@ -352,18 +367,53 @@
 
       let allInvestments = []; // Para armazenar todos os investimentos para busca
 
+      // Função auxiliar para formatar valor como moeda BRL para exibição (não para inputs mascarados)
+      function formatCurrency(value) {
+          if (typeof value !== 'number') {
+              value = parseFloat(value);
+          }
+          if (isNaN(value)) {
+              return 'R$ 0,00';
+          }
+          return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+
+      // Função auxiliar para limpar a formatação de um valor mascarado e obter o número
+      function unmaskAndParseCurrency(maskedValue) {
+          if (typeof maskedValue === 'string') {
+              const cleanValue = maskedValue.replace(/[R$ ]/g, '').replace(/\./g, '').replace(/,/g, '.');
+              return parseFloat(cleanValue);
+          }
+          return maskedValue; // Se já for um número, retorna como está
+      }
+
+      // APLICAR MÁSCARA NOS CAMPOS DE VALOR
+      $('#investInitialValue, #investCurrentValue, #newInvestValue, #movementValue').mask('0.000.000.000.000,00', {reverse: true});
+
+
       // Carregar Investimentos
       function loadInvestments() {
+        console.log("loadInvestments: Iniciando carregamento de investimentos.");
         google.script.run.withSuccessHandler(function(data) {
-          allInvestments = data.slice(1); // Ignora o cabeçalho
-          renderInvestments(allInvestments);
+          console.log("loadInvestments: Dados de investimentos recebidos:", data);
+          if (data && data.length > 0 && data[0] && Array.isArray(data[0])) {
+            allInvestments = data.slice(1); // Ignora o cabeçalho
+            renderInvestments(allInvestments);
+            console.log("loadInvestments: Investimentos carregados e renderizados.");
+          } else {
+            console.warn("loadInvestments: Nenhum investimento ou dados de investimento inválidos recebidos.");
+            $('#investmentList').html('<tr><td colspan="10" class="text-center text-muted">Nenhum investimento registrado ainda.</td></tr>');
+          }
+        }).withFailureHandler(function(error) {
+            console.error("loadInvestments: Erro ao carregar investimentos do backend:", error.message);
+            $('#investmentList').html('<tr><td colspan="10" class="text-center text-danger">Erro ao carregar investimentos: ' + error.message + '</td></tr>');
         }).getSheetData('Investimentos');
       }
 
       function renderInvestments(investmentsToRender) {
         let html = '';
         if (investmentsToRender.length === 0) {
-          html = '<tr><td colspan="8" class="text-center text-muted">Nenhum investimento registrado ainda.</td></tr>';
+          html = '<tr><td colspan="10" class="text-center text-muted">Nenhum investimento registrado ainda.</td></tr>';
         } else {
             const headers = google.script.run.getSheetData('Investimentos')[0]; // Busca cabeçalhos novamente
             const idCol = headers.indexOf('ID');
@@ -375,10 +425,13 @@
             const rentabilidadeCol = headers.indexOf('Rentabilidade %');
             const dataAporteInicialCol = headers.indexOf('Data Aporte Inicial');
             const observacoesCol = headers.indexOf('Observacoes');
+            const tipoAporteCol = headers.indexOf('Tipo de Aporte'); 
+            const tipoMovimentacaoCol = headers.indexOf('Tipo de Movimentação'); 
+
 
             if ([idCol, nomeInvestimentoCol, instituicaoCol, valorInicialCol, valorAtualCol, tipoCol, rentabilidadeCol, dataAporteInicialCol, observacoesCol].some(idx => idx === -1)) {
-                console.error("Cabeçalhos da aba 'Investimentos' inválidos. Verifique a estrutura.");
-                $('#investmentList').html('<tr><td colspan="8" class="text-center text-danger">Erro: Cabeçalhos da aba Investimentos incorretos.</td></tr>');
+                console.error("renderInvestments: Cabeçalhos da aba 'Investimentos' inválidos. Verifique a estrutura. Headers:", headers);
+                $('#investmentList').html('<tr><td colspan="10" class="text-center text-danger">Erro: Cabeçalhos da aba Investimentos incorretos.</td></tr>');
                 return;
             }
             
@@ -392,6 +445,9 @@
               const rentabilidade = parseFloat(row[rentabilidadeCol] || 0);
               const dataAporte = new Date(row[dataAporteInicialCol]);
               const formattedDate = !isNaN(dataAporte.getTime()) ? dataAporte.toLocaleDateString('pt-BR') : 'N/A';
+              const tipoAporte = tipoAporteCol !== -1 && row[tipoAporteCol] !== undefined ? row[tipoAporteCol] : 'N/A';
+              const tipoMovimentacao = tipoMovimentacaoCol !== -1 && row[tipoMovimentacaoCol] !== undefined ? row[tipoMovimentacaoCol] : 'N/A';
+
 
               const rentabilidadeClass = rentabilidade >= 0 ? 'status-positive' : 'status-negative';
 
@@ -399,10 +455,12 @@
                 <td>${nome}</td>
                 <td>${instituicao}</td>
                 <td>${tipo}</td>
-                <td>R$ ${valorInicial.toFixed(2)}</td>
-                <td>R$ ${valorAtual.toFixed(2)}</td>
+                <td>${formatCurrency(valorInicial)}</td>
+                <td>${formatCurrency(valorAtual)}</td>
                 <td class="${rentabilidadeClass}">${rentabilidade.toFixed(2)}%</td>
                 <td>${formattedDate}</td>
+                <td>${tipoAporte}</td>
+                <td>${tipoMovimentacao}</td>
                 <td>
                   <div class="btn-group-vertical" role="group" aria-label="Ações do Investimento">
                     <button class="btn btn-sm btn-info edit-invest-btn" data-id="${investId}">Editar</button>
@@ -415,8 +473,9 @@
             });
           }
           $('#investmentList').html(html);
+          console.log("renderInvestments: Investimentos renderizados na tabela.");
 
-          // Event listener para o botão de Editar Investimento
+          // Adicionar listeners para botões de Editar
           $('.edit-invest-btn').on('click', function() {
             const investId = $(this).data('id');
             const rowData = allInvestments.find(row => row[idCol] === investId); 
@@ -424,15 +483,26 @@
               $('#investId').val(rowData[idCol]);
               $('#investName').val(rowData[nomeInvestimentoCol]);
               $('#investInstitution').val(rowData[instituicaoCol]);
-              $('#investInitialValue').val(rowData[valorInicialCol]);
-              $('#investCurrentValue').val(rowData[valorAtualCol]); // Preenche mas é readonly
+              
+              const initialValueRaw = parseFloat(rowData[valorInicialCol] || 0);
+              $('#investInitialValue').val(initialValueRaw); 
+              $('#investInitialValue').mask('0.000.000.000.000,00', {reverse: true}).val(formatCurrency(initialValueRaw));
+
+              const currentValueRaw = parseFloat(rowData[valorAtualCol] || 0);
+              $('#investCurrentValue').val(currentValueRaw); 
+              $('#investCurrentValue').mask('0.000.000.000.000,00', {reverse: true}).val(formatCurrency(currentValueRaw));
+              
               $('#investType').val(rowData[tipoCol]);
               $('#investRentability').val(rowData[rentabilidadeCol]); // Preenche mas é readonly
               
               const startDate = new Date(rowData[dataAporteInicialCol]);
               $('#investStartDate').val(startDate.toISOString().split('T')[0]);
               
+              $('#investMovementType').val(tipoAporteCol !== -1 && rowData[tipoAporteCol] !== undefined ? rowData[tipoAporteCol] : 'Único'); 
+              $('#investAutomationType').val(tipoMovimentacaoCol !== -1 && rowData[tipoMovimentacaoCol] !== undefined ? rowData[tipoMovimentacaoCol] : 'Manual'); 
+
               $('#investObservations').val(rowData[observacoesCol]);
+              console.log("edit-invest-btn: Formulário de investimento preenchido para edição.");
             }
           });
 
@@ -440,14 +510,16 @@
           $('.update-value-btn').on('click', function() {
             const investId = $(this).data('id');
             const investName = $(this).data('name');
-            const investCurrentValue = $(this).data('current-value');
+            const investCurrentValue = parseFloat($(this).data('current-value')); 
             
             $('#modalInvestId').val(investId);
             $('#modalInvestName').text(investName);
-            $('#modalInvestCurrentValue').text(`R$ ${investCurrentValue}`);
+            $('#modalInvestCurrentValue').text(formatCurrency(investCurrentValue)); // Formatando no modal
             $('#newInvestValue').val(''); // Limpa o campo de valor
+            $('#newInvestValue').mask('0.000.000.000.000,00', {reverse: true});
             $('#newInvestRentability').val(''); // Limpa a rentabilidade
             $('#updateValueMessage').empty(); // Limpa mensagens anteriores
+            console.log("update-value-btn: Modal de atualização de valor aberto.");
 
             const updateValueModal = new bootstrap.Modal(document.getElementById('updateValueModal'));
             updateValueModal.show();
@@ -463,23 +535,39 @@
             $('#movementDate').val(new Date().toISOString().split('T')[0]); // Data de hoje
             $('#movementType').val('');
             $('#movementValue').val('');
+            $('#movementValue').mask('0.000.000.000.000,00', {reverse: true});
+
             $('#movementAccount').val('');
             $('#movementObservations').val('');
             $('#movementMessage').empty();
 
-            // Carrega dropdowns de contas para o modal
+            console.log("record-movement-btn: Carregando dropdowns para modal de movimentação.");
             google.script.run.withSuccessHandler(function(dropdownData) {
+                console.log("record-movement-btn: Dados de dropdowns para movimentação recebidos:", dropdownData);
                 const contasHeaders = dropdownData.contas[0];
                 const contaNomeCol = contasHeaders.indexOf('Nome da Conta');
                 const contaBancoCol = contasHeaders.indexOf('Banco');
 
                 $('#movementAccount').empty().append('<option value="">Selecione...</option>');
-                dropdownData.contas.slice(1).forEach(row => {
-                    $('#movementAccount').append(`<option value="${row[contaNomeCol]}">${row[contaNomeCol]} (${row[contaBancoCol] || 'N/A'})</option>`);
-                });
+                if (dropdownData.contas && dropdownData.contas.length > 0 && contasHeaders.length > 0) {
+                    dropdownData.contas.slice(1).forEach(row => {
+                        const nomeConta = row[contaNomeCol];
+                        const banco = row[contaBancoCol];
+                        if (nomeConta) {
+                            $('#movementAccount').append(`<option value="${nomeConta}">${nomeConta} (${banco || 'N/A'})</option>`);
+                        }
+                    });
+                    console.log("record-movement-btn: Dropdown de contas populado.");
+                } else {
+                    console.warn("record-movement-btn: Nenhuma conta ou dados de conta inválidos recebidos para o modal de movimentação.");
+                    $('#movementAccount').append('<option value="">Nenhuma conta encontrada.</option>');
+                }
 
                 const movementModal = new bootstrap.Modal(document.getElementById('movementModal'));
                 movementModal.show();
+            }).withFailureHandler(function(error) {
+                console.error("record-movement-btn: Erro ao carregar dados de dropdowns para movimentação:", error.message);
+                $('#movementAccount').empty().append('<option value="">Erro ao carregar dados.</option>');
             }).getSheetDataBatch({
                 contas: 'Contas'
             });
@@ -490,6 +578,7 @@
             const investId = $(this).data('id');
             const investName = $(this).data('name');
             if (confirm(`Tem certeza que deseja excluir o investimento "${investName}"?`)) {
+              console.log("delete-invest-btn: Solicitando exclusão do investimento ID:", investId);
               google.script.run
                 .withSuccessHandler(function(success) {
                   if (success) {
@@ -498,13 +587,16 @@
                     $('#investmentForm')[0].reset(); 
                     $('#investId').val('');
                     $('#investmentForm').removeClass('was-validated');
+                    $('#investInitialValue, #investCurrentValue').mask('0.000.000.000.000,00', {reverse: true});
+                    console.log("delete-invest-btn: Investimento excluído com sucesso.");
                   } else {
                     $('#investmentMessage').html('<div class="alert alert-danger">Erro ao excluir investimento.</div>');
+                    console.error("delete-invest-btn: Erro ao excluir investimento (backend retornou false).");
                   }
                 })
                 .withFailureHandler(function(error) {
                   $('#investmentMessage').html('<div class="alert alert-danger">Erro inesperado: ' + error.message + '</div>');
-                  console.error("Erro ao excluir investimento:", error);
+                  console.error("delete-invest-btn: Erro inesperado do backend ao excluir investimento:", error);
                 })
                 .deleteInvestment(investId);
             }
@@ -517,20 +609,39 @@
       $('#investmentForm').on('submit', function(event) {
         event.preventDefault();
         const form = $(this)[0];
+
+        const investInitialValueParsed = unmaskAndParseCurrency($('#investInitialValue').val());
+        $('#investInitialValue').val(investInitialValueParsed); 
+
+        const investCurrentValueParsed = unmaskAndParseCurrency($('#investCurrentValue').val());
+        $('#investCurrentValue').val(investCurrentValueParsed); 
+        
+
         if (!form.checkValidity()) {
           event.stopPropagation();
+          if (!isNaN(investInitialValueParsed)) {
+              $('#investInitialValue').val(formatCurrency(investInitialValueParsed));
+          }
+          if (!isNaN(investCurrentValueParsed)) {
+              $('#investCurrentValue').val(formatCurrency(investCurrentValueParsed));
+          }
+          console.warn("investmentForm: Formulário inválido.");
+
         } else {
           const investData = {
             id: $('#investId').val(),
             nomeInvestimento: $('#investName').val(),
             instituicao: $('#investInstitution').val(),
-            valorInicial: parseFloat($('#investInitialValue').val()),
-            valorAtual: parseFloat($('#investCurrentValue').val()), 
+            valorInicial: parseFloat(investInitialValueParsed), 
+            valorAtual: parseFloat(investCurrentValueParsed), 
             tipo: $('#investType').val(),
             rentabilidade: parseFloat($('#investRentability').val()), 
             dataAporteInicial: $('#investStartDate').val(),
+            tipoAporte: $('#investMovementType').val(), 
+            tipoMovimentacao: $('#investAutomationType').val(), 
             observacoes: $('#investObservations').val()
           };
+          console.log("saveInvestment: Enviando dados:", investData);
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
@@ -538,14 +649,17 @@
                 form.reset();
                 form.classList.remove('was-validated');
                 $('#investId').val('');
+                $('#investInitialValue, #investCurrentValue').mask('0.000.000.000.000,00', {reverse: true});
                 loadInvestments();
+                console.log("saveInvestment: Investimento salvo/atualizado com sucesso.");
               } else {
                 $('#investmentMessage').html('<div class="alert alert-danger">Erro ao salvar investimento. Verifique os logs.</div>');
+                console.error("saveInvestment: Erro ao salvar investimento (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#investmentMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao salvar investimento:", error);
+                console.error("saveInvestment: Erro inesperado do backend:", error);
             })
             .saveInvestment(investData);
         }
@@ -556,13 +670,24 @@
       $('#updateValueForm').on('submit', function(event) {
         event.preventDefault();
         const form = $(this)[0];
+
+        const newInvestValueParsed = unmaskAndParseCurrency($('#newInvestValue').val());
+        $('#newInvestValue').val(newInvestValueParsed); 
+        
+
         if (!form.checkValidity()) {
           event.stopPropagation();
+          if (!isNaN(newInvestValueParsed)) {
+              $('#newInvestValue').val(formatCurrency(newInvestValueParsed));
+          }
+          console.warn("updateValueForm: Formulário inválido.");
+
         } else {
           const investId = $('#modalInvestId').val();
-          const newInvestValue = parseFloat($('#newInvestValue').val());
+          const newInvestValue = parseFloat(newInvestValueParsed); 
           const newInvestRentability = $('#newInvestRentability').val() !== '' ? parseFloat($('#newInvestRentability').val()) : undefined;
 
+          console.log("updateInvestmentValue: Enviando dados:", {investId, newInvestValue, newInvestRentability});
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
@@ -571,15 +696,18 @@
                     $('#updateValueModal').modal('hide');
                     form.reset();
                     form.classList.remove('was-validated');
+                    $('#newInvestValue').mask('0.000.000.000.000,00', {reverse: true});
                     loadInvestments();
                 }, 1000);
+                console.log("updateInvestmentValue: Valor atualizado com sucesso.");
               } else {
                 $('#updateValueMessage').html('<div class="alert alert-danger">Erro ao atualizar valor. Verifique os logs.</div>');
+                console.error("updateInvestmentValue: Erro ao atualizar valor (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#updateValueMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao atualizar valor:", error);
+                console.error("updateInvestmentValue: Erro inesperado do backend:", error);
             })
             .updateInvestmentValue(investId, newInvestValue, newInvestRentability);
         }
@@ -590,19 +718,29 @@
       $('#movementForm').on('submit', function(event) {
         event.preventDefault();
         const form = $(this)[0];
+
+        const movementValueParsed = unmaskAndParseCurrency($('#movementValue').val());
+        $('#movementValue').val(movementValueParsed); 
+        
+
         if (!form.checkValidity()) {
           event.stopPropagation();
+          if (!isNaN(movementValueParsed)) {
+              $('#movementValue').val(formatCurrency(movementValueParsed));
+          }
+          console.warn("movementForm: Formulário inválido.");
+
         } else {
           const investId = $('#modalMovementInvestId').val();
           const movementData = {
             investId: investId,
             data: $('#movementDate').val(),
             tipo: $('#movementType').val(),
-            valor: parseFloat($('#movementValue').val()),
+            valor: parseFloat(movementValueParsed), 
             conta: $('#movementAccount').val(),
             observacoes: $('#movementObservations').val()
           };
-
+          console.log("recordInvestmentMovement: Enviando dados:", movementData);
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
@@ -611,15 +749,18 @@
                     $('#movementModal').modal('hide');
                     form.reset();
                     form.classList.remove('was-validated');
+                    $('#movementValue').mask('0.000.000.000.000,00', {reverse: true});
                     loadInvestments(); 
                 }, 1000);
+                console.log("recordInvestmentMovement: Movimentação registrada com sucesso.");
               } else {
                 $('#movementMessage').html('<div class="alert alert-danger">Erro ao registrar movimentação. Verifique os logs.</div>');
+                console.error("recordInvestmentMovement: Erro ao registrar movimentação (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#movementMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao registrar movimentação:", error);
+                console.error("recordInvestmentMovement: Erro inesperado do backend:", error);
             })
             .recordInvestmentMovement(movementData); 
         }
@@ -632,6 +773,8 @@
         $('#investmentForm').removeClass('was-validated');
         $('#investId').val(''); 
         $('#investmentMessage').empty();
+        $('#investInitialValue, #investCurrentValue').mask('0.000.000.000.000,00', {reverse: true});
+        console.log("clearFormBtn: Formulário de investimento limpo.");
       });
 
       // Busca parcial no campo de pesquisa
@@ -642,18 +785,24 @@
           const nomeInvestimentoCol = headers.indexOf('Nome do Investimento');
           const instituicaoCol = headers.indexOf('Instituição');
           const tipoCol = headers.indexOf('Tipo');
+          const tipoAporteCol = headers.indexOf('Tipo de Aporte'); 
+          const tipoMovimentacaoCol = headers.indexOf('Tipo de Movimentação'); 
           
           return (row[nomeInvestimentoCol] && row[nomeInvestimentoCol].toLowerCase().includes(searchTerm)) ||
                  (row[instituicaoCol] && row[instituicaoCol].toLowerCase().includes(searchTerm)) ||
-                 (row[tipoCol] && row[tipoCol].toLowerCase().includes(searchTerm));
+                 (row[tipoCol] && row[tipoCol].toLowerCase().includes(searchTerm)) ||
+                 (tipoAporteCol !== -1 && row[tipoAporteCol] && row[tipoAporteCol].toLowerCase().includes(searchTerm)) || 
+                 (tipoMovimentacaoCol !== -1 && row[tipoMovimentacaoCol] && row[tipoMovimentacaoCol].toLowerCase().includes(searchTerm)); 
         });
         renderInvestments(filtered);
+        console.log("investSearch: Pesquisa de investimento executada.");
       });
 
       // Limpar Busca
       $('#clearSearchBtn').on('click', function() {
         $('#investSearch').val('');
         renderInvestments(allInvestments);
+        console.log("clearSearchBtn: Pesquisa de investimento limpa.");
       });
 
       // Inicialização

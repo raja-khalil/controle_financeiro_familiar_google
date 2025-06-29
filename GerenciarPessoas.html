@@ -53,10 +53,6 @@
       padding: 0.75rem 1.25rem;
       transition: all 0.3s ease;
     }
-    .btn-primary {
-      background-color: #007bff;
-      border-color: #007bff;
-    }
     .btn-primary:hover {
       background-color: #0056b3;
       border-color: #0056b3;
@@ -139,7 +135,7 @@
 </head>
 <body>
   <div class="container">
-    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
+    <a href="https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec" class="btn btn-secondary btn-back">← Voltar ao Menu Principal</a>
     
     <h1 class="mb-4">Gerenciar Pessoas</h1>
 
@@ -181,13 +177,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
   <script>
     $(document).ready(function() {
       // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
       // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
       // VOCÊ DEVE ATUALIZAR ESTE URL EM TODOS OS ARQUIVOS HTML DO SEU PROJETO.
-      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6dbd1bffb/exec
+      // URL ATUAL: https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec
       const mainAppUrl = "https://script.google.com/macros/s/AKfycbyL3wLmxmOy-JgYNY-XWkK52kwQifZQw1DEpRuQ3dfseAwaDoILjF6MG1kLvjxb3FQ-/exec"; 
       $('.btn-back').attr('href', mainAppUrl);
 
@@ -196,10 +191,25 @@
 
       // Carregar Pessoas
       function loadPeople() {
+        console.log("loadPeople: Iniciando carregamento de pessoas.");
         google.script.run.withSuccessHandler(function(data) {
+          console.log("loadPeople: Dados de pessoas recebidos:", data);
+          // Adicionado verificação de dados vazios ou formato inesperado
+          if (!data || data.length === 0 || !data[0] || !Array.isArray(data[0])) {
+            console.warn("loadPeople: Nenhuma pessoa ou dados de pessoa inválidos recebidos.");
+            $('#personList').html('<tr><td colspan="2" class="text-center text-muted">Nenhuma pessoa registrada ainda ou erro nos dados.</td></tr>');
+            peopleHeaders = []; // Garante que headers fiquem vazios em caso de erro
+            allPeople = []; // Garante que a lista de pessoas fique vazia
+            return;
+          }
+
           peopleHeaders = data[0]; // Armazena os cabeçalhos
           allPeople = data.slice(1); // Ignora o cabeçalho e armazena
           renderPeople(allPeople);
+          console.log("loadPeople: Pessoas carregadas e renderizadas.");
+        }).withFailureHandler(function(error) {
+            console.error("loadPeople: Erro ao carregar pessoas do backend:", error.message);
+            $('#personList').html('<tr><td colspan="2" class="text-center text-danger">Erro ao carregar pessoas: ' + error.message + '</td></tr>');
         }).getSheetData('Pessoas');
       }
 
@@ -209,29 +219,46 @@
           html = '<tr><td colspan="2" class="text-center text-muted">Nenhuma pessoa registrada ainda.</td></tr>';
         } else {
           // Os índices das colunas são obtidos dos cabeçalhos armazenados
+          // Verifica se peopleHeaders foi populado corretamente
+          if (!peopleHeaders || peopleHeaders.length === 0) {
+              console.error("renderPeople: Cabeçalhos de pessoas não disponíveis. Possível erro em loadPeople.");
+              html = '<tr><td colspan="2" class="text-center text-danger">Erro interno: Cabeçalhos não carregados.</td></tr>';
+              $('#personList').html(html);
+              return;
+          }
+
           const idCol = peopleHeaders.indexOf('ID');
           const nomeCol = peopleHeaders.indexOf('Nome');
+
+          if (idCol === -1 || nomeCol === -1) {
+              console.error("renderPeople: Cabeçalhos da aba 'Pessoas' inválidos. Verifique a estrutura: 'ID', 'Nome'. Headers atuais:", peopleHeaders);
+              $('#personList').html('<tr><td colspan="2" class="text-center text-danger">Erro: Estrutura da aba Pessoas incorreta.</td></tr>');
+              return;
+          }
 
           peopleToRender.forEach(row => {
             const personId = row[idCol];
             const personName = row[nomeCol];
+            // Garante que os valores não são undefined/null antes de usar
             html += `<tr>
-              <td>${personName}</td>
+              <td>${personName || ''}</td>
               <td>
                 <div class="btn-group-vertical" role="group" aria-label="Ações da Pessoa">
-                  <button class="btn btn-sm btn-info edit-btn" data-id="${personId}" data-name="${personName}">Editar</button>
-                  <button class="btn btn-sm btn-danger delete-btn" data-id="${personId}" data-name="${personName}">Excluir</button>
+                  <button class="btn btn-sm btn-info edit-btn" data-id="${personId}" data-name="${personName || ''}">Editar</button>
+                  <button class="btn btn-sm btn-danger delete-btn" data-id="${personId}" data-name="${personName || ''}">Excluir</button>
                 </div>
               </td>
             </tr>`;
           });
         }
         $('#personList').html(html);
+        console.log("renderPeople: Pessoas renderizadas na tabela.");
 
         // Adicionar listeners para botões de Editar
         $('.edit-btn').on('click', function() {
           $('#personId').val($(this).data('id'));
           $('#personName').val($(this).data('name'));
+          console.log("edit-btn: Formulário de pessoa preenchido para edição.");
         });
 
         // Adicionar listeners para botões de Excluir
@@ -239,6 +266,7 @@
           const personId = $(this).data('id');
           const personName = $(this).data('name');
           if (confirm(`Tem certeza que deseja excluir a pessoa "${personName}"?`)) {
+            console.log("delete-btn: Solicitando exclusão da pessoa ID:", personId);
             google.script.run
               .withSuccessHandler(function(success) {
                 if (success) {
@@ -247,13 +275,15 @@
                   $('#personForm')[0].reset(); 
                   $('#personId').val('');
                   $('#personForm').removeClass('was-validated');
+                  console.log("delete-btn: Pessoa excluída com sucesso.");
                 } else {
                   $('#personMessage').html('<div class="alert alert-danger">Erro ao excluir pessoa.</div>');
+                  console.error("delete-btn: Erro ao excluir pessoa (backend retornou false).");
                 }
               })
               .withFailureHandler(function(error) {
                 $('#personMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao excluir pessoa:", error);
+                console.error("delete-btn: Erro inesperado do backend ao excluir pessoa:", error);
               })
               .deletePerson(personId);
           }
@@ -266,11 +296,13 @@
         const form = $(this)[0];
         if (!form.checkValidity()) {
           event.stopPropagation();
+          console.warn("personForm: Formulário inválido.");
         } else {
           const personData = {
             id: $('#personId').val(),
-            nome: $('#personName').val() // 'nome' para mapear para "Nome"
+            nome: $('#personName').val() 
           };
+          console.log("savePerson: Enviando dados:", personData);
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
@@ -279,13 +311,15 @@
                 form.classList.remove('was-validated');
                 $('#personId').val('');
                 loadPeople();
+                console.log("savePerson: Pessoa salva/atualizada com sucesso.");
               } else {
                 $('#personMessage').html('<div class="alert alert-danger">Erro ao salvar pessoa. Verifique os logs.</div>');
+                console.error("savePerson: Erro ao salvar pessoa (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#personMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao salvar pessoa:", error);
+                console.error("savePerson: Erro inesperado do backend:", error);
             })
             .savePerson(personData);
         }
@@ -298,23 +332,32 @@
         $('#personForm').removeClass('was-validated');
         $('#personId').val('');
         $('#personMessage').empty();
+        console.log("clearFormBtn: Formulário de pessoa limpo.");
       });
 
       // Busca parcial no campo de pesquisa
       $('#personSearch').on('keyup', function() {
         const searchTerm = $(this).val().toLowerCase();
-        // Os índices das colunas são obtidos dos cabeçalhos armazenados
+        // Verifica se peopleHeaders foi populado corretamente
+        if (!peopleHeaders || peopleHeaders.length === 0) {
+            console.warn("personSearch: Cabeçalhos não disponíveis para busca.");
+            renderPeople([]); // Limpa a tabela se os cabeçalhos não estão lá
+            return;
+        }
+
         const nomeCol = peopleHeaders.indexOf('Nome');
         const filtered = allPeople.filter(row => {
           return (nomeCol !== -1 && row[nomeCol] && String(row[nomeCol]).toLowerCase().includes(searchTerm));
         });
         renderPeople(filtered);
+        console.log("personSearch: Pesquisa de pessoa executada.");
       });
 
       // Limpar Busca
       $('#clearSearchBtn').on('click', function() {
         $('#personSearch').val('');
         renderPeople(allPeople);
+        console.log("clearSearchBtn: Pesquisa de pessoa limpa.");
       });
 
       // Inicialização

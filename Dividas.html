@@ -53,10 +53,6 @@
       padding: 0.75rem 1.25rem;
       transition: all 0.3s ease;
     }
-    .btn-primary {
-      background-color: #007bff;
-      border-color: #007bff;
-    }
     .btn-primary:hover {
       background-color: #0056b3;
       border-color: #0056b3;
@@ -191,12 +187,12 @@
       </div>
       <div class="col-md-4 col-sm-6">
         <label for="debtTotalValue" class="form-label">Valor Total (R$)</label>
-        <input type="number" step="0.01" class="form-control" id="debtTotalValue" required>
+        <input type="text" class="form-control" id="debtTotalValue" required inputmode="numeric">
         <div class="invalid-feedback">Por favor, insira o valor total.</div>
       </div>
       <div class="col-md-4 col-sm-6">
         <label for="debtPaidValue" class="form-label">Valor Pago (R$)</label>
-        <input type="number" step="0.01" class="form-control" id="debtPaidValue" value="0" readonly>
+        <input type="text" class="form-control" id="debtPaidValue" value="0" readonly inputmode="numeric">
       </div>
       <div class="col-md-4 col-sm-12">
         <label for="debtStatus" class="form-label">Status</label>
@@ -217,6 +213,24 @@
         <label for="debtDueDate" class="form-label">Data Vencimento (Próx. Parcela)</label>
         <input type="date" class="form-control" id="debtDueDate" required>
         <div class="invalid-feedback">Por favor, insira a data de vencimento.</div>
+      </div>
+      <div class="col-md-6 col-sm-12">
+        <label for="debtInstallments" class="form-label">Quantidade de Parcelas</label>
+        <input type="number" step="1" class="form-control" id="debtInstallments" min="1" value="1">
+        <div class="invalid-feedback">Por favor, insira a quantidade de parcelas (mínimo 1).</div>
+      </div>
+      <div class="col-md-6 col-sm-12">
+        <label for="debtFrequency" class="form-label">Periodicidade das Parcelas</label>
+        <select class="form-select" id="debtFrequency">
+          <option value="Única">Única</option>
+          <option value="Mensal">Mensal</option>
+          <option value="Semanal">Semanal</option>
+          <option value="Anual">Anual</option>
+          <option value="Bimestral">Bimestral</option>
+          <option value="Trimestral">Trimestral</option>
+          <option value="Semestral">Semestral</option>
+          <option value="Outra">Outra</option>
+        </select>
       </div>
       <div class="col-12">
         <label for="debtObservations" class="form-label">Observações</label>
@@ -242,6 +256,8 @@
             <th>Credor</th>
             <th>Total</th>
             <th>Pago</th>
+            <th>Parcelas</th>
+            <th>Periodicidade</th>
             <th>Progresso (%)</th>
             <th>Venc.</th>
             <th>Status</th>
@@ -249,7 +265,7 @@
           </tr>
         </thead>
         <tbody id="debtList">
-          <tr><td colspan="8" class="text-center">Carregando dívidas...</td></tr>
+          <tr><td colspan="10" class="text-center">Carregando dívidas...</td></tr>
         </tbody>
       </table>
     </div>
@@ -269,7 +285,7 @@
 
               <div class="mb-3">
                 <label for="paymentAmount" class="form-label">Valor do Pagamento (R$)</label>
-                <input type="number" step="0.01" class="form-control" id="paymentAmount" required>
+                <input type="text" class="form-control" id="paymentAmount" required inputmode="numeric">
                 <div class="invalid-feedback">Por favor, insira o valor do pagamento.</div>
               </div>
               <div class="mb-3">
@@ -302,8 +318,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
-  <script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script> <script>
     $(document).ready(function() {
       // ATENÇÃO: Este é o URL base da sua Web App do Google Apps Script.
       // Se você fizer uma nova implantação ou o URL mudar por qualquer motivo,
@@ -314,18 +329,53 @@
 
       let allDebts = []; // Para armazenar todas as dívidas para busca
 
+      // Função auxiliar para formatar valor como moeda BRL para exibição (não para inputs mascarados)
+      function formatCurrency(value) {
+          if (typeof value !== 'number') {
+              value = parseFloat(value);
+          }
+          if (isNaN(value)) {
+              return 'R$ 0,00';
+          }
+          return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+
+      // Função auxiliar para limpar a formatação de um valor mascarado e obter o número
+      function unmaskAndParseCurrency(maskedValue) {
+          if (typeof maskedValue === 'string') {
+              const cleanValue = maskedValue.replace(/[R$ ]/g, '').replace(/\./g, '').replace(/,/g, '.');
+              return parseFloat(cleanValue);
+          }
+          return maskedValue; // Se já for um número, retorna como está
+      }
+
+      // APLICAR MÁSCARA NOS CAMPOS DE VALOR
+      $('#debtTotalValue, #debtPaidValue, #paymentAmount').mask('0.000.000.000.000,00', {reverse: true});
+
+
       // Carregar Dívidas
       function loadDebts() {
+        console.log("loadDebts: Iniciando carregamento de dívidas.");
         google.script.run.withSuccessHandler(function(data) {
-          allDebts = data.slice(1); // Ignora o cabeçalho
-          renderDebts(allDebts);
+          console.log("loadDebts: Dados de dívidas recebidos:", data);
+          if (data && data.length > 0 && data[0] && Array.isArray(data[0])) {
+            allDebts = data.slice(1); // Ignora o cabeçalho
+            renderDebts(allDebts);
+            console.log("loadDebts: Dívidas carregadas e renderizadas.");
+          } else {
+            console.warn("loadDebts: Nenhuma dívida ou dados de dívida inválidos recebidos.");
+            $('#debtList').html('<tr><td colspan="10" class="text-center text-muted">Nenhuma dívida registrada ainda.</td></tr>');
+          }
+        }).withFailureHandler(function(error) {
+            console.error("loadDebts: Erro ao carregar dívidas do backend:", error.message);
+            $('#debtList').html('<tr><td colspan="10" class="text-center text-danger">Erro ao carregar dívidas: ' + error.message + '</td></tr>');
         }).getSheetData('Dividas');
       }
 
       function renderDebts(debtsToRender) {
         let html = '';
         if (debtsToRender.length === 0) {
-          html = '<tr><td colspan="8" class="text-center text-muted">Nenhuma dívida registrada ainda.</td></tr>';
+          html = '<tr><td colspan="10" class="text-center text-muted">Nenhuma dívida registrada ainda.</td></tr>';
         } else {
             const headers = google.script.run.getSheetData('Dividas')[0]; // Busca cabeçalhos novamente
             const idCol = headers.indexOf('ID');
@@ -337,10 +387,13 @@
             const statusCol = headers.indexOf('Status');
             const dataInicioCol = headers.indexOf('Data Inicio');
             const observacoesCol = headers.indexOf('Observacoes');
+            const installmentsCol = headers.indexOf('Quantidade de Parcelas'); 
+            const frequencyCol = headers.indexOf('Periodicidade'); 
+
 
             if ([idCol, nomeDividaCol, credorCol, valorTotalCol, valorPagoCol, dataVencimentoCol, statusCol, dataInicioCol, observacoesCol].some(idx => idx === -1)) {
-                console.error("Cabeçalhos da aba 'Dividas' inválidos. Verifique a estrutura.");
-                $('#debtList').html('<tr><td colspan="8" class="text-center text-danger">Erro: Cabeçalhos da aba Dívidas incorretos.</td></tr>');
+                console.error("renderDebts: Cabeçalhos da aba 'Dividas' inválidos. Verifique a estrutura. Headers:", headers);
+                $('#debtList').html('<tr><td colspan="10" class="text-center text-danger">Erro: Cabeçalhos da aba Dívidas incorretos.</td></tr>');
                 return;
             }
             
@@ -351,6 +404,8 @@
               const valorTotal = parseFloat(row[valorTotalCol] || 0);
               const valorPago = parseFloat(row[valorPagoCol] || 0);
               const status = row[statusCol];
+              const installments = installmentsCol !== -1 && row[installmentsCol] !== undefined ? row[installmentsCol] : 'N/A';
+              const frequency = frequencyCol !== -1 && row[frequencyCol] !== undefined ? row[frequencyCol] : 'N/A';
               
               const remaining = valorTotal - valorPago;
               const progress = valorTotal > 0 ? ((valorPago / valorTotal) * 100).toFixed(2) : 0;
@@ -367,8 +422,10 @@
               html += `<tr>
                 <td>${nome}</td>
                 <td>${credor}</td>
-                <td>R$ ${valorTotal.toFixed(2)}</td>
-                <td>R$ ${valorPago.toFixed(2)}</td>
+                <td>${formatCurrency(valorTotal)}</td>
+                <td>${formatCurrency(valorPago)}</td>
+                <td>${installments}</td>
+                <td>${frequency}</td>
                 <td><div class="progress" style="height: 25px;"><div class="progress-bar ${statusBadgeClass}" role="progressbar" style="width: ${progress}%;" aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="100">${progress}%</div></div></td>
                 <td>${formattedDueDate}</td>
                 <td><span class="badge ${statusBadgeClass}">${status}</span></td>
@@ -383,8 +440,9 @@
             });
           }
           $('#debtList').html(html);
+          console.log("renderDebts: Dívidas renderizadas na tabela.");
 
-          // Event listener para o botão de Editar Dívida
+          // Adicionar listeners para botões de Editar
           $('.edit-debt-btn').on('click', function() {
             const debtId = $(this).data('id');
             const rowData = allDebts.find(row => row[idCol] === debtId); 
@@ -392,17 +450,27 @@
               $('#debtId').val(rowData[idCol]);
               $('#debtName').val(rowData[nomeDividaCol]);
               $('#debtCreditor').val(rowData[credorCol]);
-              $('#debtTotalValue').val(rowData[valorTotalCol]);
-              $('#debtPaidValue').val(rowData[valorPagoCol]);
+              
+              const totalValueRaw = parseFloat(rowData[valorTotalCol] || 0);
+              $('#debtTotalValue').val(totalValueRaw); 
+              $('#debtTotalValue').mask('0.000.000.000.000,00', {reverse: true}).val(formatCurrency(totalValueRaw)); 
+
+              const paidValueRaw = parseFloat(rowData[valorPagoCol] || 0);
+              $('#debtPaidValue').val(paidValueRaw); 
+              $('#debtPaidValue').mask('0.000.000.000.000,00', {reverse: true}).val(formatCurrency(paidValueRaw)); 
               
               const startDate = new Date(rowData[dataInicioCol]);
               $('#debtStartDate').val(startDate.toISOString().split('T')[0]);
               
               const dueDate = new Date(rowData[dataVencimentoCol]);
               $('#debtDueDate').val(dueDate.toISOString().split('T')[0]);
+
+              $('#debtInstallments').val(installmentsCol !== -1 && rowData[installmentsCol] !== undefined ? rowData[installmentsCol] : 1);
+              $('#debtFrequency').val(frequencyCol !== -1 && rowData[frequencyCol] !== undefined ? rowData[frequencyCol] : 'Única');
               
               $('#debtStatus').val(rowData[statusCol]);
               $('#debtObservations').val(rowData[observacoesCol]);
+              console.log("edit-debt-btn: Formulário de dívida preenchido para edição.");
             }
           });
 
@@ -410,35 +478,61 @@
           $('.pay-debt-btn').on('click', function() {
             const debtId = $(this).data('id');
             const debtName = $(this).data('name');
-            const debtRemaining = $(this).data('remaining');
+            const debtRemaining = parseFloat($(this).data('remaining')); 
             
             $('#modalDebtId').val(debtId);
             $('#modalDebtName').text(debtName);
-            $('#modalDebtRemaining').text(`R$ ${debtRemaining}`);
+            $('#modalDebtRemaining').text(formatCurrency(debtRemaining)); // Formatando no modal
             $('#paymentAmount').val(''); // Limpa o campo de valor
+            $('#paymentAmount').mask('0.000.000.000.000,00', {reverse: true});
+
             $('#paymentDate').val(new Date().toISOString().split('T')[0]); // Data de hoje
             $('#paymentMessage').empty(); // Limpa mensagens anteriores
 
             // Carrega dropdowns de contas e pessoas para o modal
+            console.log("pay-debt-btn: Carregando dropdowns para modal de pagamento.");
             google.script.run.withSuccessHandler(function(dropdownData) {
+                console.log("pay-debt-btn: Dados de dropdowns para pagamento recebidos:", dropdownData);
                 const contasHeaders = dropdownData.contas[0];
                 const contaNomeCol = contasHeaders.indexOf('Nome da Conta');
                 const contaBancoCol = contasHeaders.indexOf('Banco');
 
                 $('#paymentAccount').empty().append('<option value="">Selecione...</option>');
-                dropdownData.contas.slice(1).forEach(row => {
-                    $('#paymentAccount').append(`<option value="${row[contaNomeCol]}">${row[contaNomeCol]} (${row[contaBancoCol] || 'N/A'})</option>`);
-                });
+                if (dropdownData.contas && dropdownData.contas.length > 0 && contasHeaders.length > 0) {
+                    dropdownData.contas.slice(1).forEach(row => {
+                        const nomeConta = row[contaNomeCol];
+                        const banco = row[contaBancoCol];
+                        if (nomeConta) {
+                            $('#paymentAccount').append(`<option value="${nomeConta}">${nomeConta} (${banco || 'N/A'})</option>`);
+                        }
+                    });
+                    console.log("pay-debt-btn: Dropdown de contas populado.");
+                } else {
+                    console.warn("pay-debt-btn: Nenhuma conta ou dados de conta inválidos recebidos para o modal de pagamento.");
+                    $('#paymentAccount').append('<option value="">Nenhuma conta encontrada.</option>');
+                }
 
                 const pessoasHeaders = dropdownData.pessoas[0];
                 const pessoaNomeCol = pessoasHeaders.indexOf('Nome');
                 $('#paymentPerson').empty().append('<option value="">Selecione...</option>');
-                dropdownData.pessoas.slice(1).forEach(row => {
-                    $('#paymentPerson').append(`<option value="${row[pessoaNomeCol]}">${row[pessoaNomeCol]}</option>`);
-                });
+                if (dropdownData.pessoas && dropdownData.pessoas.length > 0 && pessoasHeaders.length > 0) {
+                    dropdownData.pessoas.slice(1).forEach(row => {
+                        const pessoaNome = row[pessoaNomeCol];
+                        if (pessoaNome) {
+                            $('#paymentPerson').append(`<option value="${pessoaNome}">${pessoaNome}</option>`);
+                        }
+                    });
+                    console.log("pay-debt-btn: Dropdown de pessoas populado.");
+                } else {
+                    console.warn("pay-debt-btn: Nenhuma pessoa ou dados de pessoa inválidos recebidos para o modal de pagamento.");
+                    $('#paymentPerson').append('<option value="">Nenhuma pessoa encontrada.</option>');
+                }
 
                 const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
                 paymentModal.show();
+            }).withFailureHandler(function(error) {
+                console.error("pay-debt-btn: Erro ao carregar dados de dropdowns para pagamento:", error.message);
+                $('#paymentAccount, #paymentPerson').empty().append('<option value="">Erro ao carregar dados.</option>');
             }).getSheetDataBatch({
                 contas: 'Contas',
                 pessoas: 'Pessoas'
@@ -450,6 +544,7 @@
             const debtId = $(this).data('id');
             const debtName = $(this).data('name');
             if (confirm(`Tem certeza que deseja excluir a dívida "${debtName}"?`)) {
+              console.log("delete-debt-btn: Solicitando exclusão da dívida ID:", debtId);
               google.script.run
                 .withSuccessHandler(function(success) {
                   if (success) {
@@ -458,13 +553,16 @@
                     $('#debtForm')[0].reset(); 
                     $('#debtId').val('');
                     $('#debtForm').removeClass('was-validated');
+                    $('#debtTotalValue, #debtPaidValue').mask('0.000.000.000.000,00', {reverse: true});
+                    console.log("delete-debt-btn: Dívida excluída com sucesso.");
                   } else {
                     $('#debtMessage').html('<div class="alert alert-danger">Erro ao excluir dívida.</div>');
+                    console.error("delete-debt-btn: Erro ao excluir dívida (backend retornou false).");
                   }
                 })
                 .withFailureHandler(function(error) {
                   $('#debtMessage').html('<div class="alert alert-danger">Erro inesperado: ' + error.message + '</div>');
-                  console.error("Erro ao excluir dívida:", error);
+                  console.error("delete-debt-btn: Erro inesperado do backend ao excluir dívida:", error);
                 })
                 .deleteDebt(debtId);
             }
@@ -477,20 +575,39 @@
       $('#debtForm').on('submit', function(event) {
         event.preventDefault();
         const form = $(this)[0];
+
+        const debtTotalValueParsed = unmaskAndParseCurrency($('#debtTotalValue').val());
+        $('#debtTotalValue').val(debtTotalValueParsed); 
+
+        const debtPaidValueParsed = unmaskAndParseCurrency($('#debtPaidValue').val());
+        $('#debtPaidValue').val(debtPaidValueParsed); 
+
+
         if (!form.checkValidity()) {
           event.stopPropagation();
+          if (!isNaN(debtTotalValueParsed)) {
+              $('#debtTotalValue').val(formatCurrency(debtTotalValueParsed));
+          }
+          if (!isNaN(debtPaidValueParsed)) {
+              $('#debtPaidValue').val(formatCurrency(debtPaidValueParsed));
+          }
+          console.warn("debtForm: Formulário inválido.");
+
         } else {
           const debtData = {
             id: $('#debtId').val(),
             nomeDivida: $('#debtName').val(),
             credor: $('#debtCreditor').val(),
-            valorTotal: parseFloat($('#debtTotalValue').val()),
-            valorPago: parseFloat($('#debtPaidValue').val()),
+            valorTotal: parseFloat(debtTotalValueParsed), 
+            valorPago: parseFloat(debtPaidValueParsed), 
             dataInicio: $('#debtStartDate').val(),
             dataVencimento: $('#debtDueDate').val(),
             status: $('#debtStatus').val(),
+            quantidadeParcelas: parseInt($('#debtInstallments').val() || 1), 
+            periodicidade: $('#debtFrequency').val(), 
             observacoes: $('#debtObservations').val()
           };
+          console.log("saveDebt: Enviando dados:", debtData);
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
@@ -498,14 +615,17 @@
                 form.reset();
                 form.classList.remove('was-validated');
                 $('#debtId').val('');
+                $('#debtTotalValue, #debtPaidValue').mask('0.000.000.000.000,00', {reverse: true});
                 loadDebts();
+                console.log("saveDebt: Dívida salva/atualizada com sucesso.");
               } else {
                 $('#debtMessage').html('<div class="alert alert-danger">Erro ao salvar dívida. Verifique os logs.</div>');
+                console.error("saveDebt: Erro ao salvar dívida (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#debtMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao salvar dívida:", error);
+                console.error("saveDebt: Erro inesperado do backend:", error);
             })
             .saveDebt(debtData);
         }
@@ -516,15 +636,25 @@
       $('#paymentForm').on('submit', function(event) {
         event.preventDefault();
         const form = $(this)[0];
+
+        const paymentAmountParsed = unmaskAndParseCurrency($('#paymentAmount').val());
+        $('#paymentAmount').val(paymentAmountParsed); 
+
         if (!form.checkValidity()) {
           event.stopPropagation();
+          if (!isNaN(paymentAmountParsed)) {
+              $('#paymentAmount').val(formatCurrency(paymentAmountParsed));
+          }
+          console.warn("paymentForm: Formulário de pagamento inválido.");
+
         } else {
           const debtId = $('#modalDebtId').val();
-          const paymentAmount = parseFloat($('#paymentAmount').val());
+          const paymentAmount = parseFloat(paymentAmountParsed); 
           const paymentDate = $('#paymentDate').val();
           const paymentAccount = $('#paymentAccount').val();
           const paymentPerson = $('#paymentPerson').val();
 
+          console.log("recordDebtPayment: Enviando dados de pagamento:", {debtId, paymentAmount, paymentDate, paymentAccount, paymentPerson});
           google.script.run
             .withSuccessHandler(function(success) {
               if (success) {
@@ -533,15 +663,18 @@
                     $('#paymentModal').modal('hide');
                     form.reset();
                     form.classList.remove('was-validated');
+                    $('#paymentAmount').mask('0.000.000.000.000,00', {reverse: true});
                     loadDebts();
                 }, 1000); 
+                console.log("recordDebtPayment: Pagamento registrado com sucesso.");
               } else {
                 $('#paymentMessage').html('<div class="alert alert-danger">Erro ao registrar pagamento. Verifique os logs.</div>');
+                console.error("recordDebtPayment: Erro ao registrar pagamento (backend retornou false).");
               }
             })
             .withFailureHandler(function(error) {
                 $('#paymentMessage').html('<div class="alert alert-danger">Ocorreu um erro inesperado: ' + error.message + '</div>');
-                console.error("Erro ao registrar pagamento:", error);
+                console.error("recordDebtPayment: Erro inesperado do backend ao registrar pagamento:", error);
             })
             .recordDebtPayment(debtId, paymentAmount, paymentDate, paymentAccount, paymentPerson);
         }
@@ -554,6 +687,8 @@
         $('#debtForm').removeClass('was-validated');
         $('#debtId').val(''); 
         $('#debtMessage').empty();
+        $('#debtTotalValue, #debtPaidValue').mask('0.000.000.000.000,00', {reverse: true});
+        console.log("clearFormBtn: Formulário de dívida limpo.");
       });
 
       // Busca parcial no campo de pesquisa
@@ -564,18 +699,22 @@
           const nomeDividaCol = headers.indexOf('Nome da Dívida');
           const credorCol = headers.indexOf('Credor');
           const statusCol = headers.indexOf('Status');
-          
+          const periodicidadeCol = headers.indexOf('Periodicidade'); 
+
           return (row[nomeDividaCol] && row[nomeDividaCol].toLowerCase().includes(searchTerm)) ||
                  (row[credorCol] && row[credorCol].toLowerCase().includes(searchTerm)) ||
-                 (row[statusCol] && row[statusCol].toLowerCase().includes(searchTerm));
+                 (row[statusCol] && row[statusCol].toLowerCase().includes(searchTerm)) ||
+                 (periodicidadeCol !== -1 && row[periodicidadeCol] && row[periodicidadeCol].toLowerCase().includes(searchTerm)); 
         });
         renderDebts(filtered);
+        console.log("debtSearch: Pesquisa de dívida executada.");
       });
 
       // Limpar Busca
       $('#clearSearchBtn').on('click', function() {
         $('#debtSearch').val('');
         renderDebts(allDebts);
+        console.log("clearSearchBtn: Pesquisa de dívida limpa.");
       });
 
       // Inicialização
